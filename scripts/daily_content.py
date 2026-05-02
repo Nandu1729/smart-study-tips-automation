@@ -90,29 +90,182 @@ PIN_DESC_TEMPLATES = [
     "Before your next exam, read this ✅ {n} {topic} tips that work even when you're short on time. #ExamPrep #StudyTips #LastMinuteStudy #StudentLife #SmartStudy",
 ]
 
-# Color schemes for pins (accent bar color, text color on card)
-COLOR_SCHEMES = [
-    {"bg": (255, 182, 193), "accent": (220, 80, 120),  "text": (50, 10, 30)},   # pink
-    {"bg": (255, 213, 170), "accent": (200, 90, 20),   "text": (60, 25,  5)},   # orange
-    {"bg": (173, 216, 230), "accent": (30,  100, 180), "text": (10, 30, 70)},   # blue
-    {"bg": (180, 230, 180), "accent": (30,  140,  60), "text": (10, 50, 20)},   # green
-    {"bg": (210, 185, 235), "accent": (110,  40, 170), "text": (40,  5, 70)},   # purple
+# 21 daily rotating colour themes — (day % 21) picks the daily theme,
+# then pin_num selects one of the 5 per-pin variants inside that day's palette.
+# Each entry: bg=background, accent=bar colour, text=dark text on white card
+DAILY_COLOR_THEMES = [
+    # Day 0 — Coral & Cream
+    [
+        {"bg": (255, 200, 185), "accent": (220,  80,  60), "text": (80, 20, 10)},
+        {"bg": (255, 215, 200), "accent": (210,  70,  50), "text": (80, 20, 10)},
+        {"bg": (255, 190, 170), "accent": (230,  90,  70), "text": (80, 20, 10)},
+        {"bg": (255, 205, 190), "accent": (215,  75,  55), "text": (80, 20, 10)},
+        {"bg": (255, 220, 205), "accent": (205,  65,  45), "text": (80, 20, 10)},
+    ],
+    # Day 1 — Ocean Blue
+    [
+        {"bg": (180, 220, 245), "accent": ( 25, 110, 190), "text": (10, 35, 75)},
+        {"bg": (165, 210, 240), "accent": ( 20, 100, 180), "text": (10, 35, 75)},
+        {"bg": (195, 230, 250), "accent": ( 30, 120, 200), "text": (10, 35, 75)},
+        {"bg": (170, 215, 242), "accent": ( 22, 105, 185), "text": (10, 35, 75)},
+        {"bg": (185, 225, 248), "accent": ( 28, 115, 195), "text": (10, 35, 75)},
+    ],
+    # Day 2 — Forest Green
+    [
+        {"bg": (185, 235, 195), "accent": ( 35, 140,  65), "text": (10, 50, 20)},
+        {"bg": (175, 228, 185), "accent": ( 28, 130,  58), "text": (10, 50, 20)},
+        {"bg": (195, 242, 205), "accent": ( 42, 150,  72), "text": (10, 50, 20)},
+        {"bg": (180, 232, 190), "accent": ( 32, 135,  62), "text": (10, 50, 20)},
+        {"bg": (190, 238, 200), "accent": ( 38, 145,  68), "text": (10, 50, 20)},
+    ],
+    # Day 3 — Royal Purple
+    [
+        {"bg": (220, 195, 245), "accent": (115,  45, 185), "text": (45, 10, 75)},
+        {"bg": (210, 185, 240), "accent": (105,  35, 175), "text": (45, 10, 75)},
+        {"bg": (230, 205, 250), "accent": (125,  55, 195), "text": (45, 10, 75)},
+        {"bg": (215, 190, 242), "accent": (110,  40, 180), "text": (45, 10, 75)},
+        {"bg": (225, 200, 247), "accent": (120,  50, 190), "text": (45, 10, 75)},
+    ],
+    # Day 4 — Sunny Yellow
+    [
+        {"bg": (255, 245, 170), "accent": (210, 165,   0), "text": (70, 50,  0)},
+        {"bg": (255, 240, 155), "accent": (200, 155,   0), "text": (70, 50,  0)},
+        {"bg": (255, 250, 185), "accent": (220, 175,   0), "text": (70, 50,  0)},
+        {"bg": (255, 242, 160), "accent": (205, 160,   0), "text": (70, 50,  0)},
+        {"bg": (255, 248, 178), "accent": (215, 170,   0), "text": (70, 50,  0)},
+    ],
+    # Day 5 — Rose Gold
+    [
+        {"bg": (255, 210, 210), "accent": (185,  70,  95), "text": (75, 15, 35)},
+        {"bg": (255, 200, 200), "accent": (175,  60,  85), "text": (75, 15, 35)},
+        {"bg": (255, 220, 220), "accent": (195,  80, 105), "text": (75, 15, 35)},
+        {"bg": (255, 205, 205), "accent": (180,  65,  90), "text": (75, 15, 35)},
+        {"bg": (255, 215, 215), "accent": (190,  75, 100), "text": (75, 15, 35)},
+    ],
+    # Day 6 — Mint Fresh
+    [
+        {"bg": (185, 245, 225), "accent": ( 20, 160, 115), "text": (10, 55, 40)},
+        {"bg": (175, 240, 218), "accent": ( 15, 150, 108), "text": (10, 55, 40)},
+        {"bg": (195, 250, 232), "accent": ( 25, 170, 122), "text": (10, 55, 40)},
+        {"bg": (180, 242, 220), "accent": ( 18, 155, 112), "text": (10, 55, 40)},
+        {"bg": (190, 247, 228), "accent": ( 22, 163, 118), "text": (10, 55, 40)},
+    ],
+    # Day 7 — Peach Sunset
+    [
+        {"bg": (255, 220, 175), "accent": (215, 110,  30), "text": (75, 35,  5)},
+        {"bg": (255, 212, 162), "accent": (205, 100,  22), "text": (75, 35,  5)},
+        {"bg": (255, 228, 188), "accent": (225, 120,  38), "text": (75, 35,  5)},
+        {"bg": (255, 216, 168), "accent": (210, 105,  26), "text": (75, 35,  5)},
+        {"bg": (255, 224, 182), "accent": (220, 115,  34), "text": (75, 35,  5)},
+    ],
+    # Day 8 — Sky Lavender
+    [
+        {"bg": (215, 210, 250), "accent": ( 80,  60, 200), "text": (25, 15, 80)},
+        {"bg": (205, 200, 245), "accent": ( 70,  50, 190), "text": (25, 15, 80)},
+        {"bg": (225, 220, 255), "accent": ( 90,  70, 210), "text": (25, 15, 80)},
+        {"bg": (210, 205, 248), "accent": ( 75,  55, 195), "text": (25, 15, 80)},
+        {"bg": (220, 215, 252), "accent": ( 85,  65, 205), "text": (25, 15, 80)},
+    ],
+    # Day 9 — Steel Teal
+    [
+        {"bg": (175, 230, 230), "accent": ( 20, 140, 140), "text": ( 5, 50, 50)},
+        {"bg": (165, 222, 222), "accent": ( 15, 130, 130), "text": ( 5, 50, 50)},
+        {"bg": (185, 238, 238), "accent": ( 25, 150, 150), "text": ( 5, 50, 50)},
+        {"bg": (170, 226, 226), "accent": ( 18, 135, 135), "text": ( 5, 50, 50)},
+        {"bg": (180, 234, 234), "accent": ( 22, 145, 145), "text": ( 5, 50, 50)},
+    ],
+    # Day 10 — Deep Crimson
+    [
+        {"bg": (255, 185, 185), "accent": (170,  20,  30), "text": (70,  5, 10)},
+        {"bg": (255, 175, 175), "accent": (160,  15,  25), "text": (70,  5, 10)},
+        {"bg": (255, 195, 195), "accent": (180,  25,  35), "text": (70,  5, 10)},
+        {"bg": (255, 180, 180), "accent": (165,  18,  28), "text": (70,  5, 10)},
+        {"bg": (255, 190, 190), "accent": (175,  22,  32), "text": (70,  5, 10)},
+    ],
+    # Day 11 — Lime Pop
+    [
+        {"bg": (220, 250, 175), "accent": (100, 175,  10), "text": (35, 65,  0)},
+        {"bg": (210, 245, 165), "accent": ( 90, 165,   5), "text": (35, 65,  0)},
+        {"bg": (230, 255, 185), "accent": (110, 185,  15), "text": (35, 65,  0)},
+        {"bg": (215, 248, 170), "accent": ( 95, 170,   8), "text": (35, 65,  0)},
+        {"bg": (225, 252, 180), "accent": (105, 180,  12), "text": (35, 65,  0)},
+    ],
+    # Day 12 — Indigo Night
+    [
+        {"bg": (200, 205, 245), "accent": ( 50,  55, 170), "text": (15, 15, 70)},
+        {"bg": (190, 195, 240), "accent": ( 40,  45, 160), "text": (15, 15, 70)},
+        {"bg": (210, 215, 250), "accent": ( 60,  65, 180), "text": (15, 15, 70)},
+        {"bg": (195, 200, 242), "accent": ( 45,  50, 165), "text": (15, 15, 70)},
+        {"bg": (205, 210, 247), "accent": ( 55,  60, 175), "text": (15, 15, 70)},
+    ],
+    # Day 13 — Warm Sand
+    [
+        {"bg": (250, 235, 195), "accent": (180, 130,  40), "text": (65, 45, 10)},
+        {"bg": (245, 228, 182), "accent": (170, 120,  32), "text": (65, 45, 10)},
+        {"bg": (255, 242, 208), "accent": (190, 140,  48), "text": (65, 45, 10)},
+        {"bg": (248, 232, 188), "accent": (175, 125,  36), "text": (65, 45, 10)},
+        {"bg": (252, 238, 202), "accent": (185, 135,  44), "text": (65, 45, 10)},
+    ],
+    # Day 14 — Dusty Rose
+    [
+        {"bg": (245, 205, 215), "accent": (175,  70, 100), "text": (65, 15, 35)},
+        {"bg": (240, 195, 208), "accent": (165,  60,  90), "text": (65, 15, 35)},
+        {"bg": (250, 215, 222), "accent": (185,  80, 110), "text": (65, 15, 35)},
+        {"bg": (242, 200, 212), "accent": (170,  65,  95), "text": (65, 15, 35)},
+        {"bg": (248, 210, 218), "accent": (180,  75, 105), "text": (65, 15, 35)},
+    ],
+    # Day 15 — Electric Cyan
+    [
+        {"bg": (175, 240, 245), "accent": ( 10, 175, 185), "text": ( 5, 60, 65)},
+        {"bg": (165, 235, 240), "accent": (  5, 165, 175), "text": ( 5, 60, 65)},
+        {"bg": (185, 245, 250), "accent": ( 15, 185, 195), "text": ( 5, 60, 65)},
+        {"bg": (170, 238, 242), "accent": (  8, 170, 180), "text": ( 5, 60, 65)},
+        {"bg": (180, 242, 247), "accent": ( 12, 180, 190), "text": ( 5, 60, 65)},
+    ],
+    # Day 16 — Vintage Olive
+    [
+        {"bg": (225, 225, 175), "accent": (115, 120,  20), "text": (40, 42,  5)},
+        {"bg": (218, 218, 165), "accent": (108, 112,  15), "text": (40, 42,  5)},
+        {"bg": (232, 232, 185), "accent": (122, 128,  25), "text": (40, 42,  5)},
+        {"bg": (222, 222, 170), "accent": (112, 116,  18), "text": (40, 42,  5)},
+        {"bg": (228, 228, 180), "accent": (118, 124,  22), "text": (40, 42,  5)},
+    ],
+    # Day 17 — Blush Gold
+    [
+        {"bg": (255, 225, 195), "accent": (190, 140,  55), "text": (70, 45, 10)},
+        {"bg": (255, 218, 182), "accent": (182, 132,  48), "text": (70, 45, 10)},
+        {"bg": (255, 232, 208), "accent": (198, 148,  62), "text": (70, 45, 10)},
+        {"bg": (255, 222, 188), "accent": (186, 136,  52), "text": (70, 45, 10)},
+        {"bg": (255, 228, 202), "accent": (194, 144,  58), "text": (70, 45, 10)},
+    ],
+    # Day 18 — Berry Plum
+    [
+        {"bg": (230, 185, 230), "accent": (140,  30, 130), "text": (55,  5, 50)},
+        {"bg": (222, 175, 222), "accent": (132,  22, 122), "text": (55,  5, 50)},
+        {"bg": (238, 195, 238), "accent": (148,  38, 138), "text": (55,  5, 50)},
+        {"bg": (226, 180, 226), "accent": (136,  26, 126), "text": (55,  5, 50)},
+        {"bg": (234, 190, 234), "accent": (144,  34, 134), "text": (55,  5, 50)},
+    ],
+    # Day 19 — Arctic White-Blue
+    [
+        {"bg": (225, 240, 255), "accent": ( 60, 140, 210), "text": (15, 45, 80)},
+        {"bg": (215, 232, 250), "accent": ( 50, 130, 200), "text": (15, 45, 80)},
+        {"bg": (235, 248, 255), "accent": ( 70, 150, 220), "text": (15, 45, 80)},
+        {"bg": (220, 236, 252), "accent": ( 55, 135, 205), "text": (15, 45, 80)},
+        {"bg": (230, 244, 254), "accent": ( 65, 145, 215), "text": (15, 45, 80)},
+    ],
+    # Day 20 — Terracotta
+    [
+        {"bg": (245, 200, 170), "accent": (180,  80,  40), "text": (70, 25,  8)},
+        {"bg": (240, 190, 158), "accent": (172,  72,  34), "text": (70, 25,  8)},
+        {"bg": (250, 210, 182), "accent": (188,  88,  46), "text": (70, 25,  8)},
+        {"bg": (242, 195, 164), "accent": (176,  76,  38), "text": (70, 25,  8)},
+        {"bg": (248, 205, 176), "accent": (184,  84,  43), "text": (70, 25,  8)},
+    ],
 ]
 
-# Study-themed Unsplash background photos (10 options, rotate by day % 10)
-# Each URL is a direct Unsplash image crop at 1000×1500
-STUDY_BG_URLS = [
-    "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=1000&h=1500&fit=crop",  # books & light
-    "https://images.unsplash.com/photo-1501504905252-473c47e087f8?w=1000&h=1500&fit=crop",  # laptop study
-    "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1000&h=1500&fit=crop",  # writing notes
-    "https://images.unsplash.com/photo-1488190211105-8b0e65b80b4e?w=1000&h=1500&fit=crop",  # laptop + coffee
-    "https://images.unsplash.com/photo-1513258496099-48168024aec0?w=1000&h=1500&fit=crop",  # study desk
-    "https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=1000&h=1500&fit=crop",  # open notebook
-    "https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=1000&h=1500&fit=crop",  # stack of books
-    "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=1000&h=1500&fit=crop",  # classroom
-    "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1000&h=1500&fit=crop",  # group laptop
-    "https://images.unsplash.com/photo-1606761568499-6d2451b23c66?w=1000&h=1500&fit=crop",  # desk + plant
-]
+# Keep old COLOR_SCHEMES as a fallback reference (not used directly)
+COLOR_SCHEMES = DAILY_COLOR_THEMES[0]
 
 # ─────────────────────────────────────────────
 # BLOG CONTENT GENERATION
@@ -2131,49 +2284,36 @@ def create_pin_image(
     save_dir: Path,
 ) -> Path:
     import math, random
-    from io import BytesIO
     W, H = 1000, 1500
     bg = color_scheme["bg"]
     accent = color_scheme["accent"]
     text_color = color_scheme["text"]
 
-    # ── Background: real study photo from Unsplash ───────────────
-    day_for_bg = datetime.datetime.utcnow().day
-    bg_url = STUDY_BG_URLS[(day_for_bg + pin_num) % len(STUDY_BG_URLS)]
-    img = None
-    try:
-        r = requests.get(bg_url, timeout=15)
-        r.raise_for_status()
-        img = Image.open(BytesIO(r.content)).convert("RGB")
-        img = img.resize((W, H), Image.LANCZOS)
-    except Exception as e:
-        print(f"[Step 4] BG photo download failed ({e}), using solid colour fallback")
-
-    if img is None:
-        img = Image.new("RGB", (W, H), bg)
-
-    # Semi-transparent dark overlay so text stays readable
-    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 140))
-    img = img.convert("RGBA")
-    img = Image.alpha_composite(img, overlay).convert("RGB")
-
+    # ── Background: solid colour + dot-grid pattern ──────────────
+    img = Image.new("RGB", (W, H), bg)
     draw = ImageDraw.Draw(img)
-    faint = tuple(max(0, c - 30) for c in accent)
+
+    # Subtle dot-grid pattern on background
+    dot_color = tuple(max(0, c - 20) for c in bg)
+    for y in range(0, H, 48):
+        for x in range(0, W, 48):
+            draw.ellipse([x-3, y-3, x+3, y+3], fill=dot_color)
+
+    # Large faint circle decorations (top-right + bottom-left)
+    faint = tuple(max(0, c - 35) for c in bg)
+    draw.ellipse([600, -180, 1180, 400], outline=faint, width=6)
+    draw.ellipse([620, -160, 1160, 380], outline=faint, width=3)
+    draw.ellipse([-180, 1100, 400, 1680], outline=faint, width=6)
+    draw.ellipse([-160, 1120, 380, 1660], outline=faint, width=3)
 
     # ── Top & bottom bars (EQUAL height) ────────────────────────
     BAR_H = 120
-    # Semi-transparent accent bars using paste with mask
-    bar_overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    bar_draw = ImageDraw.Draw(bar_overlay)
-    bar_draw.rectangle([0, 0, W, BAR_H], fill=(*accent, 230))
-    bar_draw.rectangle([0, H - BAR_H, W, H], fill=(*accent, 230))
-    img = img.convert("RGBA")
-    img = Image.alpha_composite(img, bar_overlay).convert("RGB")
-    draw = ImageDraw.Draw(img)
+    draw.rectangle([0, 0, W, BAR_H], fill=accent)
+    draw.rectangle([0, H - BAR_H, W, H], fill=accent)
 
     # Thin accent line just inside the bars for depth
-    draw.rectangle([0, BAR_H, W, BAR_H + 5], fill=faint)
-    draw.rectangle([0, H - BAR_H - 5, W, H - BAR_H], fill=faint)
+    draw.rectangle([0, BAR_H, W, BAR_H + 6], fill=faint)
+    draw.rectangle([0, H - BAR_H - 6, W, H - BAR_H], fill=faint)
 
     # ── Fonts ────────────────────────────────────────────────────
     try:
@@ -2280,14 +2420,19 @@ def create_pin_image(
 
 
 def create_pin_images(topics: list[str]) -> list[Path]:
-    """Create 5 pin images: pins 1+2 for topic[0], 3+4 for topic[1], 5 for topic[2]."""
+    """Create 5 pin images: pins 1+2 for topic[0], 3+4 for topic[1], 5 for topic[2].
+    Each day picks a different colour theme from DAILY_COLOR_THEMES (21 themes = 3 weeks cycle).
+    Within the day, each pin gets a slightly different shade from that theme's 5-variant list.
+    """
     PIN_DIR.mkdir(parents=True, exist_ok=True)
+    day = datetime.datetime.utcnow().day
+    daily_theme = DAILY_COLOR_THEMES[day % len(DAILY_COLOR_THEMES)]   # 21-day rotation
     # (pin_num, topic_index)
     assignments = [(1, 0), (2, 0), (3, 1), (4, 1), (5, 2)]
     paths = []
     for pin_num, topic_idx in assignments:
         topic = topics[topic_idx]
-        scheme = COLOR_SCHEMES[pin_num - 1]
+        scheme = daily_theme[pin_num - 1]          # pick variant 0-4 from today's theme
         path = create_pin_image(pin_num, topic, scheme, PIN_DIR)
         paths.append(path)
     return paths
