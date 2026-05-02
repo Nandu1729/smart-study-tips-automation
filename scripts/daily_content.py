@@ -2115,90 +2115,128 @@ def create_pin_image(
     color_scheme: dict,
     save_dir: Path,
 ) -> Path:
+    import math, random
     W, H = 1000, 1500
-    img = Image.new("RGB", (W, H), color_scheme["bg"])
-    draw = ImageDraw.Draw(img)
-
+    bg = color_scheme["bg"]
     accent = color_scheme["accent"]
     text_color = color_scheme["text"]
 
-    # Accent bars top and bottom
-    BAR_H = 60
+    # ── Background ──────────────────────────────────────────────
+    img = Image.new("RGB", (W, H), bg)
+    draw = ImageDraw.Draw(img)
+
+    # Subtle dot-grid pattern on background
+    dot_color = tuple(max(0, c - 18) for c in bg)
+    for y in range(0, H, 48):
+        for x in range(0, W, 48):
+            draw.ellipse([x-3, y-3, x+3, y+3], fill=dot_color)
+
+    # Large faint circle decorations (top-right + bottom-left)
+    faint = tuple(max(0, c - 30) for c in bg)
+    draw.ellipse([600, -180, 1180, 400], outline=faint, width=6)
+    draw.ellipse([620, -160, 1160, 380], outline=faint, width=3)
+    draw.ellipse([-180, 1100, 400, 1680], outline=faint, width=6)
+    draw.ellipse([-160, 1120, 380, 1660], outline=faint, width=3)
+
+    # ── Top & bottom bars (EQUAL height) ────────────────────────
+    BAR_H = 120
     draw.rectangle([0, 0, W, BAR_H], fill=accent)
     draw.rectangle([0, H - BAR_H, W, H], fill=accent)
 
-    # Try to load a system font; fall back to default
+    # Thin accent line just inside the bars for depth
+    draw.rectangle([0, BAR_H, W, BAR_H + 6], fill=faint)
+    draw.rectangle([0, H - BAR_H - 6, W, H - BAR_H], fill=faint)
+
+    # ── Fonts ────────────────────────────────────────────────────
     try:
-        title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 68)
-        sub_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 44)
-        domain_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 36)
+        title_font  = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 72)
+        sub_font    = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 38)
+        bullet_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 36)
+        domain_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 38)
+        badge_font  = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32)
     except OSError:
-        title_font = ImageFont.load_default()
-        sub_font = title_font
-        domain_font = title_font
+        title_font = sub_font = bullet_font = domain_font = badge_font = ImageFont.load_default()
 
-    # Number badge in top-left accent bar
-    badge_text = f"PIN {pin_num}"
-    draw.text((30, 15), badge_text, font=domain_font, fill="white")
+    # ── Top bar content ──────────────────────────────────────────
+    # Left: brand name
+    draw.text((40, 38), "SmartStudyTips", font=badge_font, fill="white")
+    # Right: pin number badge
+    badge = f"#{pin_num}"
+    bb = draw.textbbox((0,0), badge, font=badge_font)
+    draw.text((W - (bb[2]-bb[0]) - 40, 38), badge, font=badge_font, fill="white")
 
-    # Title area — use rotating high-converting title
+    # ── Content card (white rounded-ish rect) ────────────────────
+    CARD_X1, CARD_Y1 = 60, BAR_H + 60
+    CARD_X2, CARD_Y2 = W - 60, H - BAR_H - 60
+    draw.rectangle([CARD_X1, CARD_Y1, CARD_X2, CARD_Y2], fill="white")
+    # Card border
+    draw.rectangle([CARD_X1, CARD_Y1, CARD_X2, CARD_Y2], outline=accent, width=4)
+
+    # ── Title inside card ────────────────────────────────────────
     day = datetime.datetime.utcnow().day
     title_text = PIN_TITLE_TEMPLATES[(day + pin_num) % 15]
-    # Wrap long titles into 2 lines for image display
-    words = title_text.split()
-    mid = len(words) // 2
-    title_text = " ".join(words[:mid]) + "\n" + " ".join(words[mid:])
-    margin = 60
-    max_text_w = W - 2 * margin
+    margin = CARD_X1 + 50
+    max_text_w = CARD_X2 - margin - 50
+
     lines = []
     for raw_line in title_text.split("\n"):
         lines.extend(wrap_text(raw_line, max_text_w, title_font, draw))
 
-    line_height = 80
-    total_title_h = len(lines) * line_height
-    start_y = (H - total_title_h) // 2 - 80
+    line_h = 88
+    total_title_h = len(lines) * line_h
 
-    for i, line in enumerate(lines):
-        bbox = draw.textbbox((0, 0), line, font=title_font)
-        text_w = bbox[2] - bbox[0]
-        x = (W - text_w) // 2
-        y = start_y + i * line_height
-        draw.text((x + 3, y + 3), line, font=title_font, fill=(0, 0, 0, 80))
-        draw.text((x, y), line, font=title_font, fill=text_color)
-
-    # Subtitle
-    subtitle = "Smart Study Tips for Students"
-    bbox = draw.textbbox((0, 0), subtitle, font=sub_font)
-    sub_w = bbox[2] - bbox[0]
-    sub_y = start_y + total_title_h + 40
-    draw.text(((W - sub_w) // 2, sub_y), subtitle, font=sub_font, fill=accent)
-
-    # Decorative divider line
-    div_y = sub_y + 70
-    draw.rectangle([margin, div_y, W - margin, div_y + 4], fill=accent)
-
-    # Tip teaser bullets (short version)
+    # Vertical center of card
+    card_center_y = (CARD_Y1 + CARD_Y2) // 2
+    # Total block height: title + gap + subtitle + divider + bullets
     tips_short = [
-        "Use Active Retrieval Practice",
-        "Space Out Your Review Sessions",
-        "Test Yourself Regularly",
-        "Minimize Distractions",
+        "Active Retrieval Practice",
+        "Spaced Repetition",
+        "Test Yourself Daily",
+        "Minimise Distractions",
         "Review Before Sleep",
     ]
-    tip_y = div_y + 30
-    bullet_font = sub_font
-    for tip in tips_short:
-        tip_text = f"• {tip}"
-        bbox = draw.textbbox((0, 0), tip_text, font=bullet_font)
-        tip_w = bbox[2] - bbox[0]
-        draw.text(((W - tip_w) // 2, tip_y), tip_text, font=bullet_font, fill=text_color)
-        tip_y += 58
+    block_h = total_title_h + 20 + 55 + 30 + len(tips_short) * 52
+    block_start = card_center_y - block_h // 2
 
-    # Domain text in bottom bar
-    domain = "Smart Study Tips"
-    bbox = draw.textbbox((0, 0), domain, font=domain_font)
-    dom_w = bbox[2] - bbox[0]
-    draw.text(((W - dom_w) // 2, H - BAR_H + 12), domain, font=domain_font, fill="white")
+    # Draw title lines — centered
+    title_y = block_start
+    for line in lines:
+        bb = draw.textbbox((0, 0), line, font=title_font)
+        tw = bb[2] - bb[0]
+        x = (W - tw) // 2
+        # Shadow
+        draw.text((x + 2, title_y + 2), line, font=title_font, fill=(200, 200, 200))
+        draw.text((x, title_y), line, font=title_font, fill=text_color)
+        title_y += line_h
+
+    # ── Coloured subtitle bar ─────────────────────────────────────
+    sub_y = title_y + 20
+    subtitle = "Smart Study Tips"
+    bb = draw.textbbox((0, 0), subtitle, font=sub_font)
+    sw = bb[2] - bb[0]
+    sub_x = (W - sw) // 2
+    # Pill background
+    pad = 18
+    draw.rectangle([sub_x - pad, sub_y - 6, sub_x + sw + pad, sub_y + (bb[3]-bb[1]) + 6], fill=accent)
+    draw.text((sub_x, sub_y), subtitle, font=sub_font, fill="white")
+
+    # ── Divider ───────────────────────────────────────────────────
+    div_y = sub_y + 65
+    draw.rectangle([margin, div_y, W - margin, div_y + 3], fill=accent)
+
+    # ── Bullet tips ───────────────────────────────────────────────
+    tip_y = div_y + 22
+    for tip in tips_short:
+        # Bullet circle
+        draw.ellipse([margin, tip_y + 10, margin + 16, tip_y + 26], fill=accent)
+        draw.text((margin + 28, tip_y), tip, font=bullet_font, fill=text_color)
+        tip_y += 52
+
+    # ── Bottom bar: domain ────────────────────────────────────────
+    domain = "smartstudytipshub1.blogspot.com"
+    bb = draw.textbbox((0, 0), domain, font=domain_font)
+    dw = bb[2] - bb[0]
+    draw.text(((W - dw) // 2, H - BAR_H + 38), domain, font=domain_font, fill="white")
 
     save_path = save_dir / f"pin{pin_num}.jpg"
     img.save(str(save_path), "JPEG", quality=92)
