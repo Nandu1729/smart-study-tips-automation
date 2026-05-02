@@ -2279,17 +2279,21 @@ BUFFER_GRAPHQL_URL = "https://api.buffer.com/graphql"
 PINTEREST_BOARD_SERVICE_ID = "961307551651851094"
 
 BUFFER_CREATE_POST_MUTATION = """
-mutation CreatePost($input: PostCreateInput!) {
-  postCreate(input: $input) {
-    post {
-      id
-      status
-      dueAt
+mutation CreatePost($input: CreatePostInput!) {
+  createPost(input: $input) {
+    ... on PostActionSuccess {
+      post {
+        id
+        status
+        dueAt
+      }
     }
-    error {
-      type
-      message
-    }
+    ... on InvalidInputError { message }
+    ... on UnauthorizedError { message }
+    ... on UnexpectedError { message }
+    ... on LimitReachedError { message }
+    ... on RestProxyError { message code }
+    ... on NotFoundError { message }
   }
 }
 """
@@ -2353,14 +2357,16 @@ def schedule_buffer_pin(
             print(f"[Step 6] GraphQL errors: {data['errors']}")
             return False
 
-        post_data = data.get("data", {}).get("postCreate", {})
-        error = post_data.get("error")
-        if error:
-            print(f"[Step 6] Buffer error: {error}")
+        result = data.get("data", {}).get("createPost", {})
+
+        # Union type — check for error messages
+        if result.get("message"):
+            print(f"[Step 6] Buffer error: {result['message']}")
             return False
 
-        post_id = post_data.get("post", {}).get("id", "?")
-        due_at = post_data.get("post", {}).get("dueAt", scheduled_at)
+        post = result.get("post", {})
+        post_id = post.get("id", "?")
+        due_at = post.get("dueAt", scheduled_at)
         print(f"[Step 6] ✅ Scheduled pin id={post_id} at {due_at}")
         return True
 
