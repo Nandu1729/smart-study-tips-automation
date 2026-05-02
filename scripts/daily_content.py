@@ -2374,11 +2374,16 @@ def schedule_buffer_pins(
 ) -> None:
     token = os.environ["BUFFER_TOKEN"]
 
-    # Build today's UTC datetime for scheduling
-    today = datetime.datetime.utcnow().date()
-    # Scheduled times: 11:30, 11:35, 11:40, 11:45, 11:50 UTC
-    scheduled_minutes = [0, 5, 10, 15, 20]  # offset from 11:30
-    base_hour, base_minute = 11, 30
+    # Build scheduling times: 5 PM IST = 11:30 UTC, staggered every 5 min
+    # If 11:30 UTC is already past, schedule for tomorrow at 11:30 UTC
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    target_base = now_utc.replace(hour=11, minute=30, second=0, microsecond=0)
+    if now_utc >= target_base:
+        # Already past 5 PM IST today — schedule for tomorrow
+        target_base = target_base + datetime.timedelta(days=1)
+    print(f"[Step 6] Scheduling pins starting at {target_base.isoformat()}")
+
+    today = now_utc.date()
 
     # Pin assignments: (pin_index 0-4, blog_index 0-2)
     pin_to_blog = [0, 0, 1, 1, 2]
@@ -2397,13 +2402,8 @@ def schedule_buffer_pins(
             continue
 
         link_with_utm = blog_url + "?utm_source=Pinterest&utm_medium=organic"
-        minute = base_minute + scheduled_minutes[i]
-        hour = base_hour + minute // 60
-        minute = minute % 60
-        scheduled_at = datetime.datetime(
-            today.year, today.month, today.day, hour, minute, 0,
-            tzinfo=datetime.timezone.utc
-        ).isoformat()
+        pin_time = target_base + datetime.timedelta(minutes=5 * i)
+        scheduled_at = pin_time.isoformat()
 
         # Rotate pin title: use (day + pin_index) % 15
         pin_title = PIN_TITLE_TEMPLATES[(today.day + i) % 15]
