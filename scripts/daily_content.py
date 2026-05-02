@@ -48,7 +48,7 @@ TOPIC_SETS = {
 # CONVERSION: CTAs, PIN TITLES, DESCRIPTIONS
 # ─────────────────────────────────────────────
 
-FIVERR_URL = "https://www.fiverr.com/s/your-gig-link"  # ← replace with your actual Fiverr gig URL
+FIVERR_URL = "https://www.fiverr.com/s/zWDj14R"
 
 # 7 Fiverr CTAs — rotated by day % 7
 FIVERR_CTAS = [
