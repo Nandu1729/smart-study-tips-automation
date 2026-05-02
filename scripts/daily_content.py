@@ -26,7 +26,6 @@ from PIL import Image, ImageDraw, ImageFont
 
 BLOGGER_BLOG_ID = os.environ.get("BLOGGER_BLOG_ID", "5700991576649979749")
 PINTEREST_CHANNEL_ID = "69f44c415c4c051afafb3619"
-BUFFER_BASE_URL = "https://api.bufferapp.com/1"
 
 PIN_DIR = Path("/tmp/pins")
 
@@ -2273,37 +2272,96 @@ def upload_images(paths: list[Path]) -> list[str | None]:
 
 
 # ─────────────────────────────────────────────
-# STEP 6: SCHEDULE BUFFER PINS
+# STEP 6: SCHEDULE BUFFER PINS (GraphQL API)
 # ─────────────────────────────────────────────
+
+BUFFER_GRAPHQL_URL = "https://api.buffer.com/graphql"
+PINTEREST_BOARD_SERVICE_ID = "961307551651851094"
+
+BUFFER_CREATE_POST_MUTATION = """
+mutation CreatePost($input: PostCreateInput!) {
+  postCreate(input: $input) {
+    post {
+      id
+      status
+      dueAt
+    }
+    error {
+      type
+      message
+    }
+  }
+}
+"""
 
 def schedule_buffer_pin(
     token: str,
-    profile_id: str,
+    channel_id: str,
     text: str,
     scheduled_at: str,
     link: str,
     picture_url: str,
     pin_title: str,
 ) -> bool:
-    """Schedule a single Buffer pin. Returns True on success."""
+    """Schedule a single Buffer Pinterest pin via GraphQL API. Returns True on success."""
     try:
-        resp = requests.post(
-            f"{BUFFER_BASE_URL}/updates/create.json",
-            headers={"Authorization": f"Bearer {token}"},
-            data={
-                "profile_ids[]": profile_id,
+        variables = {
+            "input": {
+                "channelId": channel_id,
                 "text": text,
-                "scheduled_at": scheduled_at,
-                "media[link]": link,
-                "media[picture]": picture_url,
-                "media[title]": pin_title,
+                "schedulingType": "automatic",
+                "mode": "customScheduled",
+                "dueAt": scheduled_at,
+                "assets": {
+                    "images": [
+                        {
+                            "url": picture_url,
+                            "metadata": {"altText": pin_title}
+                        }
+                    ]
+                },
+                "metadata": {
+                    "pinterest": {
+                        "boardServiceId": PINTEREST_BOARD_SERVICE_ID,
+                        "title": pin_title,
+                        "url": link,
+                    }
+                }
+            }
+        }
+
+        resp = requests.post(
+            BUFFER_GRAPHQL_URL,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "query": BUFFER_CREATE_POST_MUTATION,
+                "operationName": "CreatePost",
+                "variables": variables,
             },
             timeout=30,
         )
         resp.raise_for_status()
-        update_id = resp.json().get("updates", [{}])[0].get("id", "?")
-        print(f"[Step 6] Scheduled Buffer pin update_id={update_id} at {scheduled_at}")
+        data = resp.json()
+
+        # Check for GraphQL errors
+        if data.get("errors"):
+            print(f"[Step 6] GraphQL errors: {data['errors']}")
+            return False
+
+        post_data = data.get("data", {}).get("postCreate", {})
+        error = post_data.get("error")
+        if error:
+            print(f"[Step 6] Buffer error: {error}")
+            return False
+
+        post_id = post_data.get("post", {}).get("id", "?")
+        due_at = post_data.get("post", {}).get("dueAt", scheduled_at)
+        print(f"[Step 6] ✅ Scheduled pin id={post_id} at {due_at}")
         return True
+
     except Exception as exc:
         print(f"[Step 6] ERROR scheduling Buffer pin at {scheduled_at}: {exc}")
         return False
