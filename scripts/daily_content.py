@@ -2343,6 +2343,8 @@ def schedule_buffer_pin(
             },
             timeout=30,
         )
+        if not resp.ok:
+            print(f"[Step 6] HTTP {resp.status_code} response body: {resp.text[:500]}")
         resp.raise_for_status()
         data = resp.json()
 
