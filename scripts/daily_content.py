@@ -2157,13 +2157,11 @@ def create_pin_image(
     except OSError:
         title_font = sub_font = bullet_font = domain_font = badge_font = ImageFont.load_default()
 
-    # ── Top bar content ──────────────────────────────────────────
-    # Left: brand name
-    draw.text((40, 38), "SmartStudyTips", font=badge_font, fill="white")
-    # Right: pin number badge
-    badge = f"#{pin_num}"
-    bb = draw.textbbox((0,0), badge, font=badge_font)
-    draw.text((W - (bb[2]-bb[0]) - 40, 38), badge, font=badge_font, fill="white")
+    # ── Top bar content — centred brand name only, no pin number ──
+    brand = "Smart Study Tips"
+    bb = draw.textbbox((0, 0), brand, font=badge_font)
+    bw = bb[2] - bb[0]
+    draw.text(((W - bw) // 2, (BAR_H - (bb[3] - bb[1])) // 2), brand, font=badge_font, fill="white")
 
     # ── Content card (white rounded-ish rect) ────────────────────
     CARD_X1, CARD_Y1 = 60, BAR_H + 60
@@ -2185,9 +2183,6 @@ def create_pin_image(
     line_h = 88
     total_title_h = len(lines) * line_h
 
-    # Vertical center of card
-    card_center_y = (CARD_Y1 + CARD_Y2) // 2
-    # Total block height: title + gap + subtitle + divider + bullets
     tips_short = [
         "Active Retrieval Practice",
         "Spaced Repetition",
@@ -2195,48 +2190,60 @@ def create_pin_image(
         "Minimise Distractions",
         "Review Before Sleep",
     ]
-    block_h = total_title_h + 20 + 55 + 30 + len(tips_short) * 52
-    block_start = card_center_y - block_h // 2
 
-    # Draw title lines — centered
+    # ── Measure full block height for true vertical centering ────
+    SUB_H    = 55    # subtitle pill height
+    DIV_GAP  = 30    # gap before divider
+    DIV_H    = 3     # divider line
+    TIP_H    = 52    # height per bullet
+    GAPS     = 24 + SUB_H + DIV_GAP + DIV_H + 16  # gaps between sections
+
+    block_h  = total_title_h + GAPS + len(tips_short) * TIP_H
+
+    # True centre of the card area
+    card_center_y = (CARD_Y1 + CARD_Y2) // 2
+    block_start   = card_center_y - block_h // 2
+
+    # ── Title lines — horizontally centred ───────────────────────
     title_y = block_start
     for line in lines:
         bb = draw.textbbox((0, 0), line, font=title_font)
         tw = bb[2] - bb[0]
-        x = (W - tw) // 2
-        # Shadow
-        draw.text((x + 2, title_y + 2), line, font=title_font, fill=(200, 200, 200))
-        draw.text((x, title_y), line, font=title_font, fill=text_color)
+        x  = (W - tw) // 2
+        draw.text((x + 2, title_y + 2), line, font=title_font, fill=(210, 210, 210))  # shadow
+        draw.text((x, title_y),         line, font=title_font, fill=text_color)
         title_y += line_h
 
-    # ── Coloured subtitle bar ─────────────────────────────────────
-    sub_y = title_y + 20
-    subtitle = "Smart Study Tips"
-    bb = draw.textbbox((0, 0), subtitle, font=sub_font)
-    sw = bb[2] - bb[0]
-    sub_x = (W - sw) // 2
-    # Pill background
-    pad = 18
-    draw.rectangle([sub_x - pad, sub_y - 6, sub_x + sw + pad, sub_y + (bb[3]-bb[1]) + 6], fill=accent)
+    # ── Coloured pill subtitle — centred ─────────────────────────
+    sub_y    = title_y + 24
+    subtitle = "smartstudytipshub1.blogspot.com"
+    bb       = draw.textbbox((0, 0), subtitle, font=sub_font)
+    sw, sh   = bb[2] - bb[0], bb[3] - bb[1]
+    sub_x    = (W - sw) // 2
+    pad      = 20
+    draw.rectangle([sub_x - pad, sub_y - 8,
+                    sub_x + sw + pad, sub_y + sh + 8], fill=accent)
     draw.text((sub_x, sub_y), subtitle, font=sub_font, fill="white")
 
     # ── Divider ───────────────────────────────────────────────────
-    div_y = sub_y + 65
-    draw.rectangle([margin, div_y, W - margin, div_y + 3], fill=accent)
+    div_y = sub_y + sh + 8 + DIV_GAP
+    draw.rectangle([margin, div_y, W - margin, div_y + DIV_H], fill=accent)
 
-    # ── Bullet tips ───────────────────────────────────────────────
-    tip_y = div_y + 22
+    # ── Bullet tips — left-aligned inside card, centred as block ─
+    # Calculate bullet block total width for centring
+    tip_y = div_y + 16
     for tip in tips_short:
-        # Bullet circle
-        draw.ellipse([margin, tip_y + 10, margin + 16, tip_y + 26], fill=accent)
-        draw.text((margin + 28, tip_y), tip, font=bullet_font, fill=text_color)
-        tip_y += 52
+        cx = CARD_X1 + 80        # fixed left start inside card
+        draw.ellipse([cx, tip_y + 11, cx + 16, tip_y + 27], fill=accent)
+        draw.text((cx + 28, tip_y), tip, font=bullet_font, fill=text_color)
+        tip_y += TIP_H
 
-    # ── Bottom bar: domain ────────────────────────────────────────
+    # ── Bottom bar: domain centred ────────────────────────────────
     domain = "smartstudytipshub1.blogspot.com"
     bb = draw.textbbox((0, 0), domain, font=domain_font)
-    dw = bb[2] - bb[0]
-    draw.text(((W - dw) // 2, H - BAR_H + 38), domain, font=domain_font, fill="white")
+    dw, dh = bb[2] - bb[0], bb[3] - bb[1]
+    draw.text(((W - dw) // 2, H - BAR_H + (BAR_H - dh) // 2),
+              domain, font=domain_font, fill="white")
 
     save_path = save_dir / f"pin{pin_num}.jpg"
     img.save(str(save_path), "JPEG", quality=92)
