@@ -2161,34 +2161,52 @@ def create_pin_images(topics: list[str]) -> list[Path]:
 
 
 # ─────────────────────────────────────────────
-# STEP 5: UPLOAD IMAGES TO TMPFILES.ORG
+# STEP 5: UPLOAD IMAGES TO GITHUB (PERMANENT URLs)
 # ─────────────────────────────────────────────
 
-def upload_image(img_path: Path) -> str | None:
-    """Upload image to tmpfiles.org and return the public download URL."""
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+GITHUB_REPO = os.environ.get("GITHUB_REPOSITORY", "Nandu1729/smart-study-tips-automation")
+
+def upload_image_to_github(img_path: Path, date_str: str) -> str | None:
+    """Upload image to GitHub repo and return permanent raw.githubusercontent.com URL."""
+    import base64
     try:
         with open(img_path, "rb") as f:
-            resp = requests.post(
-                "https://tmpfiles.org/api/v1/upload",
-                files={"file": (img_path.name, f, "image/jpeg")},
-                timeout=60,
-            )
+            content_b64 = base64.b64encode(f.read()).decode()
+
+        github_path = f"pins/{date_str}/{img_path.name}"
+        api_url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{github_path}"
+
+        headers = {
+            "Authorization": f"Bearer {GITHUB_TOKEN}",
+            "Accept": "application/vnd.github+json",
+        }
+
+        # Check if file already exists (get its SHA)
+        existing = requests.get(api_url, headers=headers, timeout=30)
+        payload = {
+            "message": f"Add pin image {img_path.name} for {date_str}",
+            "content": content_b64,
+        }
+        if existing.status_code == 200:
+            payload["sha"] = existing.json().get("sha", "")
+
+        resp = requests.put(api_url, headers=headers, json=payload, timeout=60)
         resp.raise_for_status()
-        data = resp.json()
-        raw_url = data.get("data", {}).get("url", "")
-        # Replace tmpfiles.org/ with tmpfiles.org/dl/
-        dl_url = raw_url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
-        print(f"[Step 5] Uploaded {img_path.name}: {dl_url}")
-        return dl_url
+
+        raw_url = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/{github_path}"
+        print(f"[Step 5] Uploaded {img_path.name} to GitHub: {raw_url}")
+        return raw_url
     except Exception as exc:
-        print(f"[Step 5] ERROR uploading {img_path.name}: {exc}")
+        print(f"[Step 5] ERROR uploading {img_path.name} to GitHub: {exc}")
         return None
 
 
 def upload_images(paths: list[Path]) -> list[str | None]:
+    date_str = datetime.date.today().isoformat()
     urls = []
     for path in paths:
-        url = upload_image(path)
+        url = upload_image_to_github(path, date_str)
         urls.append(url)
     return urls
 
