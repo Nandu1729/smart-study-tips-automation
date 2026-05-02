@@ -2284,35 +2284,86 @@ def create_pin_image(
     save_dir: Path,
 ) -> Path:
     import math, random
+    from io import BytesIO
     W, H = 1000, 1500
     bg = color_scheme["bg"]
     accent = color_scheme["accent"]
     text_color = color_scheme["text"]
 
-    # ── Background: solid colour + dot-grid pattern ──────────────
-    img = Image.new("RGB", (W, H), bg)
+    # ── 20 rotating study background photos (Unsplash, permanent URLs) ──
+    STUDY_BG_PHOTOS = [
+        "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=1000&h=1500&fit=crop",  # books warm light
+        "https://images.unsplash.com/photo-1501504905252-473c47e087f8?w=1000&h=1500&fit=crop",  # laptop desk
+        "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1000&h=1500&fit=crop",  # writing notes
+        "https://images.unsplash.com/photo-1488190211105-8b0e65b80b4e?w=1000&h=1500&fit=crop",  # laptop + coffee
+        "https://images.unsplash.com/photo-1513258496099-48168024aec0?w=1000&h=1500&fit=crop",  # study desk setup
+        "https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=1000&h=1500&fit=crop",  # open notebook pen
+        "https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=1000&h=1500&fit=crop",  # stack of books
+        "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=1000&h=1500&fit=crop",  # classroom seats
+        "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1000&h=1500&fit=crop",  # group studying laptops
+        "https://images.unsplash.com/photo-1606761568499-6d2451b23c66?w=1000&h=1500&fit=crop",  # desk plant minimal
+        "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=1000&h=1500&fit=crop",  # coffee + book
+        "https://images.unsplash.com/photo-1471107340929-a87cd0f5b5f3?w=1000&h=1500&fit=crop",  # pen notebook flat lay
+        "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1000&h=1500&fit=crop",  # student reading
+        "https://images.unsplash.com/photo-1532619675605-1ede6c2ed2b0?w=1000&h=1500&fit=crop",  # library books aisle
+        "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=1000&h=1500&fit=crop",  # books colourful spines
+        "https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=1000&h=1500&fit=crop",  # student writing exam
+        "https://images.unsplash.com/photo-1491841573634-28140fc7ced7?w=1000&h=1500&fit=crop",  # headphones + laptop
+        "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1000&h=1500&fit=crop",  # to-do list planning
+        "https://images.unsplash.com/photo-1434626881859-194d67b2b86f?w=1000&h=1500&fit=crop",  # coffee laptop morning
+        "https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=1000&h=1500&fit=crop",  # library cosy reading
+    ]
+
+    # Pick photo: rotates every day, each pin_num gets a different photo
+    day_now = datetime.datetime.utcnow().day
+    photo_idx = (day_now * 5 + pin_num - 1) % len(STUDY_BG_PHOTOS)
+    photo_url = STUDY_BG_PHOTOS[photo_idx]
+
+    # Download photo; fall back to solid colour if it fails
+    img = None
+    try:
+        r = requests.get(photo_url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
+        r.raise_for_status()
+        img = Image.open(BytesIO(r.content)).convert("RGB").resize((W, H), Image.LANCZOS)
+        print(f"[Step 4] BG photo loaded for pin{pin_num}: {photo_url.split('?')[0][-40:]}")
+    except Exception as exc:
+        print(f"[Step 4] BG photo failed ({exc}), using solid colour fallback")
+
+    if img is None:
+        img = Image.new("RGB", (W, H), bg)
+        draw_tmp = ImageDraw.Draw(img)
+        dot_c = tuple(max(0, c - 20) for c in bg)
+        for y in range(0, H, 48):
+            for x in range(0, W, 48):
+                draw_tmp.ellipse([x-3, y-3, x+3, y+3], fill=dot_c)
+
+    # Tinted colour overlay (uses accent colour at ~55% opacity) so the
+    # photo shows through while matching the day's colour theme
+    r_a, g_a, b_a = accent
+    tint = Image.new("RGBA", (W, H), (r_a, g_a, b_a, 130))
+    img = img.convert("RGBA")
+    img = Image.alpha_composite(img, tint)
+
+    # Extra dark layer for readability (black at ~30%)
+    dark = Image.new("RGBA", (W, H), (0, 0, 0, 75))
+    img = Image.alpha_composite(img, dark).convert("RGB")
+
+    draw = ImageDraw.Draw(img)
+    faint = tuple(max(0, c - 35) for c in accent)
+
+    # ── Top & bottom accent bars ─────────────────────────────────
+    BAR_H = 120
+    # Solid accent bars (fully opaque) for brand visibility
+    bar_layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    bar_draw  = ImageDraw.Draw(bar_layer)
+    bar_draw.rectangle([0, 0, W, BAR_H],         fill=(*accent, 245))
+    bar_draw.rectangle([0, H - BAR_H, W, H],     fill=(*accent, 245))
+    img = img.convert("RGBA")
+    img = Image.alpha_composite(img, bar_layer).convert("RGB")
     draw = ImageDraw.Draw(img)
 
-    # Subtle dot-grid pattern on background
-    dot_color = tuple(max(0, c - 20) for c in bg)
-    for y in range(0, H, 48):
-        for x in range(0, W, 48):
-            draw.ellipse([x-3, y-3, x+3, y+3], fill=dot_color)
-
-    # Large faint circle decorations (top-right + bottom-left)
-    faint = tuple(max(0, c - 35) for c in bg)
-    draw.ellipse([600, -180, 1180, 400], outline=faint, width=6)
-    draw.ellipse([620, -160, 1160, 380], outline=faint, width=3)
-    draw.ellipse([-180, 1100, 400, 1680], outline=faint, width=6)
-    draw.ellipse([-160, 1120, 380, 1660], outline=faint, width=3)
-
-    # ── Top & bottom bars (EQUAL height) ────────────────────────
-    BAR_H = 120
-    draw.rectangle([0, 0, W, BAR_H], fill=accent)
-    draw.rectangle([0, H - BAR_H, W, H], fill=accent)
-
     # Thin accent line just inside the bars for depth
-    draw.rectangle([0, BAR_H, W, BAR_H + 6], fill=faint)
+    draw.rectangle([0, BAR_H, W, BAR_H + 6],         fill=faint)
     draw.rectangle([0, H - BAR_H - 6, W, H - BAR_H], fill=faint)
 
     # ── Fonts ────────────────────────────────────────────────────
