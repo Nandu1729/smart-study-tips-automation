@@ -2406,88 +2406,51 @@ def create_pin_image(
     except OSError:
         title_font = sub_font = bullet_font = domain_font = badge_font = ImageFont.load_default()
 
-    # ── Top bar content — centred brand name only, no pin number ──
+    # ── Top bar: brand name centred ──────────────────────────────
     brand = "Smart Study Tips"
     bb = draw.textbbox((0, 0), brand, font=badge_font)
-    bw = bb[2] - bb[0]
-    draw.text(((W - bw) // 2, (BAR_H - (bb[3] - bb[1])) // 2), brand, font=badge_font, fill="white")
+    bw, bh = bb[2] - bb[0], bb[3] - bb[1]
+    draw.text(((W - bw) // 2, (BAR_H - bh) // 2), brand, font=badge_font, fill="white")
 
-    # ── Content card (white rounded-ish rect) ────────────────────
-    CARD_X1, CARD_Y1 = 60, BAR_H + 60
-    CARD_X2, CARD_Y2 = W - 60, H - BAR_H - 60
+    # ── White card (title only — no bullets, no subtitle) ────────
+    CARD_X1, CARD_Y1 = 60, BAR_H + 80
+    CARD_X2, CARD_Y2 = W - 60, H - BAR_H - 80
     draw.rectangle([CARD_X1, CARD_Y1, CARD_X2, CARD_Y2], fill="white")
-    # Card border
-    draw.rectangle([CARD_X1, CARD_Y1, CARD_X2, CARD_Y2], outline=accent, width=4)
+    draw.rectangle([CARD_X1, CARD_Y1, CARD_X2, CARD_Y2], outline=accent, width=5)
 
-    # ── Title inside card ────────────────────────────────────────
+    # ── Title — large, bold, horizontally & vertically centred ───
     day = datetime.datetime.utcnow().day
     title_text = PIN_TITLE_TEMPLATES[(day + pin_num) % 15]
-    margin = CARD_X1 + 50
-    max_text_w = CARD_X2 - margin - 50
+    max_text_w = (CARD_X2 - CARD_X1) - 100   # 50px padding each side
 
     lines = []
     for raw_line in title_text.split("\n"):
         lines.extend(wrap_text(raw_line, max_text_w, title_font, draw))
 
-    line_h = 88
+    line_h = 92
     total_title_h = len(lines) * line_h
 
-    tips_short = [
-        "Active Retrieval Practice",
-        "Spaced Repetition",
-        "Test Yourself Daily",
-        "Minimise Distractions",
-        "Review Before Sleep",
-    ]
-
-    # ── Measure full block height for true vertical centering ────
-    SUB_H    = 55    # subtitle pill height
-    DIV_GAP  = 30    # gap before divider
-    DIV_H    = 3     # divider line
-    TIP_H    = 52    # height per bullet
-    GAPS     = 24 + SUB_H + DIV_GAP + DIV_H + 16  # gaps between sections
-
-    block_h  = total_title_h + GAPS + len(tips_short) * TIP_H
-
-    # True centre of the card area
+    # Vertically centre the title block in the card
     card_center_y = (CARD_Y1 + CARD_Y2) // 2
-    block_start   = card_center_y - block_h // 2
+    title_y = card_center_y - total_title_h // 2
 
-    # ── Title lines — horizontally centred ───────────────────────
-    title_y = block_start
     for line in lines:
         bb = draw.textbbox((0, 0), line, font=title_font)
         tw = bb[2] - bb[0]
         x  = (W - tw) // 2
-        draw.text((x + 2, title_y + 2), line, font=title_font, fill=(210, 210, 210))  # shadow
+        # Soft shadow
+        draw.text((x + 3, title_y + 3), line, font=title_font, fill=(200, 200, 200))
         draw.text((x, title_y),         line, font=title_font, fill=text_color)
         title_y += line_h
 
-    # ── Coloured pill subtitle — centred ─────────────────────────
-    sub_y    = title_y + 24
-    subtitle = "smartstudytipshub1.blogspot.com"
-    bb       = draw.textbbox((0, 0), subtitle, font=sub_font)
-    sw, sh   = bb[2] - bb[0], bb[3] - bb[1]
-    sub_x    = (W - sw) // 2
-    pad      = 20
-    draw.rectangle([sub_x - pad, sub_y - 8,
-                    sub_x + sw + pad, sub_y + sh + 8], fill=accent)
-    draw.text((sub_x, sub_y), subtitle, font=sub_font, fill="white")
+    # ── "Read more →" nudge below title ──────────────────────────
+    nudge = "Read more →"
+    bb = draw.textbbox((0, 0), nudge, font=sub_font)
+    nw, nh = bb[2] - bb[0], bb[3] - bb[1]
+    nudge_y = card_center_y + total_title_h // 2 + 40
+    draw.text(((W - nw) // 2, nudge_y), nudge, font=sub_font, fill=accent)
 
-    # ── Divider ───────────────────────────────────────────────────
-    div_y = sub_y + sh + 8 + DIV_GAP
-    draw.rectangle([margin, div_y, W - margin, div_y + DIV_H], fill=accent)
-
-    # ── Bullet tips — left-aligned inside card, centred as block ─
-    # Calculate bullet block total width for centring
-    tip_y = div_y + 16
-    for tip in tips_short:
-        cx = CARD_X1 + 80        # fixed left start inside card
-        draw.ellipse([cx, tip_y + 11, cx + 16, tip_y + 27], fill=accent)
-        draw.text((cx + 28, tip_y), tip, font=bullet_font, fill=text_color)
-        tip_y += TIP_H
-
-    # ── Bottom bar: domain centred ────────────────────────────────
+    # ── Bottom bar: blog domain centred ──────────────────────────
     domain = "smartstudytipshub1.blogspot.com"
     bb = draw.textbbox((0, 0), domain, font=domain_font)
     dw, dh = bb[2] - bb[0], bb[3] - bb[1]
