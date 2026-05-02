@@ -90,13 +90,28 @@ PIN_DESC_TEMPLATES = [
     "Before your next exam, read this ✅ {n} {topic} tips that work even when you're short on time. #ExamPrep #StudyTips #LastMinuteStudy #StudentLife #SmartStudy",
 ]
 
-# Color schemes for pins (background, accent bar)
+# Color schemes for pins (accent bar color, text color on card)
 COLOR_SCHEMES = [
-    {"bg": (255, 182, 193), "accent": (220, 80, 120), "text": (80, 20, 40)},    # pink
-    {"bg": (255, 213, 170), "accent": (230, 120, 40), "text": (80, 40, 10)},    # orange
-    {"bg": (173, 216, 230), "accent": (40, 120, 200), "text": (10, 40, 80)},    # blue
-    {"bg": (180, 230, 180), "accent": (50, 160, 80), "text": (10, 60, 20)},     # green
-    {"bg": (210, 185, 235), "accent": (130, 60, 190), "text": (50, 10, 80)},    # purple
+    {"bg": (255, 182, 193), "accent": (220, 80, 120),  "text": (50, 10, 30)},   # pink
+    {"bg": (255, 213, 170), "accent": (200, 90, 20),   "text": (60, 25,  5)},   # orange
+    {"bg": (173, 216, 230), "accent": (30,  100, 180), "text": (10, 30, 70)},   # blue
+    {"bg": (180, 230, 180), "accent": (30,  140,  60), "text": (10, 50, 20)},   # green
+    {"bg": (210, 185, 235), "accent": (110,  40, 170), "text": (40,  5, 70)},   # purple
+]
+
+# Study-themed Unsplash background photos (10 options, rotate by day % 10)
+# Each URL is a direct Unsplash image crop at 1000×1500
+STUDY_BG_URLS = [
+    "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=1000&h=1500&fit=crop",  # books & light
+    "https://images.unsplash.com/photo-1501504905252-473c47e087f8?w=1000&h=1500&fit=crop",  # laptop study
+    "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1000&h=1500&fit=crop",  # writing notes
+    "https://images.unsplash.com/photo-1488190211105-8b0e65b80b4e?w=1000&h=1500&fit=crop",  # laptop + coffee
+    "https://images.unsplash.com/photo-1513258496099-48168024aec0?w=1000&h=1500&fit=crop",  # study desk
+    "https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=1000&h=1500&fit=crop",  # open notebook
+    "https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=1000&h=1500&fit=crop",  # stack of books
+    "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=1000&h=1500&fit=crop",  # classroom
+    "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1000&h=1500&fit=crop",  # group laptop
+    "https://images.unsplash.com/photo-1606761568499-6d2451b23c66?w=1000&h=1500&fit=crop",  # desk + plant
 ]
 
 # ─────────────────────────────────────────────
@@ -2116,36 +2131,49 @@ def create_pin_image(
     save_dir: Path,
 ) -> Path:
     import math, random
+    from io import BytesIO
     W, H = 1000, 1500
     bg = color_scheme["bg"]
     accent = color_scheme["accent"]
     text_color = color_scheme["text"]
 
-    # ── Background ──────────────────────────────────────────────
-    img = Image.new("RGB", (W, H), bg)
+    # ── Background: real study photo from Unsplash ───────────────
+    day_for_bg = datetime.datetime.utcnow().day
+    bg_url = STUDY_BG_URLS[(day_for_bg + pin_num) % len(STUDY_BG_URLS)]
+    img = None
+    try:
+        r = requests.get(bg_url, timeout=15)
+        r.raise_for_status()
+        img = Image.open(BytesIO(r.content)).convert("RGB")
+        img = img.resize((W, H), Image.LANCZOS)
+    except Exception as e:
+        print(f"[Step 4] BG photo download failed ({e}), using solid colour fallback")
+
+    if img is None:
+        img = Image.new("RGB", (W, H), bg)
+
+    # Semi-transparent dark overlay so text stays readable
+    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 140))
+    img = img.convert("RGBA")
+    img = Image.alpha_composite(img, overlay).convert("RGB")
+
     draw = ImageDraw.Draw(img)
-
-    # Subtle dot-grid pattern on background
-    dot_color = tuple(max(0, c - 18) for c in bg)
-    for y in range(0, H, 48):
-        for x in range(0, W, 48):
-            draw.ellipse([x-3, y-3, x+3, y+3], fill=dot_color)
-
-    # Large faint circle decorations (top-right + bottom-left)
-    faint = tuple(max(0, c - 30) for c in bg)
-    draw.ellipse([600, -180, 1180, 400], outline=faint, width=6)
-    draw.ellipse([620, -160, 1160, 380], outline=faint, width=3)
-    draw.ellipse([-180, 1100, 400, 1680], outline=faint, width=6)
-    draw.ellipse([-160, 1120, 380, 1660], outline=faint, width=3)
+    faint = tuple(max(0, c - 30) for c in accent)
 
     # ── Top & bottom bars (EQUAL height) ────────────────────────
     BAR_H = 120
-    draw.rectangle([0, 0, W, BAR_H], fill=accent)
-    draw.rectangle([0, H - BAR_H, W, H], fill=accent)
+    # Semi-transparent accent bars using paste with mask
+    bar_overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    bar_draw = ImageDraw.Draw(bar_overlay)
+    bar_draw.rectangle([0, 0, W, BAR_H], fill=(*accent, 230))
+    bar_draw.rectangle([0, H - BAR_H, W, H], fill=(*accent, 230))
+    img = img.convert("RGBA")
+    img = Image.alpha_composite(img, bar_overlay).convert("RGB")
+    draw = ImageDraw.Draw(img)
 
     # Thin accent line just inside the bars for depth
-    draw.rectangle([0, BAR_H, W, BAR_H + 6], fill=faint)
-    draw.rectangle([0, H - BAR_H - 6, W, H - BAR_H], fill=faint)
+    draw.rectangle([0, BAR_H, W, BAR_H + 5], fill=faint)
+    draw.rectangle([0, H - BAR_H - 5, W, H - BAR_H], fill=faint)
 
     # ── Fonts ────────────────────────────────────────────────────
     try:
