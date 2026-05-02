@@ -44,6 +44,53 @@ TOPIC_SETS = {
     9: ["Managing Multiple Subjects", "Revision Strategies", "Building Exam Confidence"],
 }
 
+# ─────────────────────────────────────────────
+# CONVERSION: CTAs, PIN TITLES, DESCRIPTIONS
+# ─────────────────────────────────────────────
+
+FIVERR_URL = "https://www.fiverr.com/s/your-gig-link"  # ← replace with your actual Fiverr gig URL
+
+# 7 Fiverr CTAs — rotated by day % 7
+FIVERR_CTAS = [
+    f'<p>⚡ <strong>Want a custom study plan built for your exact schedule?</strong> <a href="{FIVERR_URL}" target="_blank">I build them here →</a></p>',
+    f'<p>📌 <strong>Struggling to stay consistent?</strong> I help students build study systems that stick. <a href="{FIVERR_URL}" target="_blank">See my Fiverr gig →</a></p>',
+    f'<p>🎯 <strong>Need done-for-you Pinterest study content?</strong> I create full content packs for student accounts. <a href="{FIVERR_URL}" target="_blank">Check this out →</a></p>',
+    f'<p>🚀 <strong>Get a personalised study system setup</strong> — tailored to your subjects, schedule, and goals. <a href="{FIVERR_URL}" target="_blank">Limited spots →</a></p>',
+    f'<p>📚 <strong>I offer done-for-you Pinterest + Blogger content packs</strong> for student accounts. <a href="{FIVERR_URL}" target="_blank">Order here →</a></p>',
+    f'<p>💡 <strong>Wish someone could just set this all up for you?</strong> That\'s exactly what I do on Fiverr. <a href="{FIVERR_URL}" target="_blank">See how →</a></p>',
+    f'<p>🔥 <strong>Top students don\'t study harder — they study smarter.</strong> Want help building your system? <a href="{FIVERR_URL}" target="_blank">Start here →</a></p>',
+]
+
+# 15 high-converting pin titles — rotated by (day + pin_index) % 15
+PIN_TITLE_TEMPLATES = [
+    "Why You Forget Everything You Study (And How to Fix It)",
+    "Study 2 Hours, Remember Like You Studied 6",
+    "The One Note-Taking Method Top Students Use",
+    "Stop Highlighting — Do This Instead",
+    "How to Study When You Have Zero Motivation",
+    "The 5-Minute Routine That Doubled My GPA",
+    "Why Your Study Schedule Isn't Working",
+    "Study Less, Score More: The Smart Student Method",
+    "The Memory Trick No One Teaches in School",
+    "How to Never Pull an All-Nighter Again",
+    "Feel Overwhelmed Before Exams? Read This",
+    "What Straight-A Students Do Differently",
+    "The Real Reason You Can't Focus While Studying",
+    "How to Study 4 Subjects in 2 Hours",
+    "The Exam Prep System That Actually Works",
+]
+
+# 7 pin description hook templates — rotated by (day + pin_index) % 7
+PIN_DESC_TEMPLATES = [
+    "Most students study the wrong way 😔 Here are {n} {topic} tips that actually get results. Save this for your next study session! 📌 #StudyTips #StudentLife #SmartStudy #StudyMotivation #ExamPrep",
+    "Stop wasting time and start owning your study sessions ⚡ These {n} {topic} strategies will change how you learn. Read the full guide on the blog! 📖 #StudyHacks #StudentSuccess #LearnSmart #StudyTips",
+    "If you've ever stared at your notes and retained nothing — this is for you 👇 {n} {topic} tips that top students swear by. #StudyTips #FocusTips #ExamSeason #StudentMotivation",
+    "The smartest students don't study more — they study differently 🧠 Here's how: {n} {topic} tips. Full guide linked! #StudySmarter #ProductivityTips #StudyTips #StudentLife",
+    "Struggling with {topic}? You're not alone 💪 These {n} proven tips will help you finally make it work. Save + share with a friend! #StudyTips #SmartStudy #StudentHacks",
+    "What nobody tells you about {topic} 👀 These {n} tips changed everything for me. Check the full blog post for details! #StudyMotivation #StudyTips #LearnBetter #StudentSuccess",
+    "Before your next exam, read this ✅ {n} {topic} tips that work even when you're short on time. #ExamPrep #StudyTips #LastMinuteStudy #StudentLife #SmartStudy",
+]
+
 # Color schemes for pins (background, accent bar)
 COLOR_SCHEMES = [
     {"bg": (255, 182, 193), "accent": (220, 80, 120), "text": (80, 20, 40)},    # pink
@@ -1935,18 +1982,27 @@ def build_html_post(topic: str) -> dict:
         conclusion = data["conclusion"]
         label = data["label"]
 
-    # Build HTML
+    # Pick CTA for today (rotated by day % 7)
+    day = datetime.datetime.utcnow().day
+    cta = FIVERR_CTAS[day % 7]
+
+    # Build HTML with CTA injected after point 3 and at conclusion
     points_html = ""
     for i, (heading, body) in enumerate(points, 1):
         points_html += (
             f"<p><strong>{i}. {heading}</strong><br>"
             f"{body}</p>\n"
         )
+        # Insert CTA naturally after point 3
+        if i == 3:
+            points_html += f"\n{cta}\n\n"
 
     html = f"""<p>{intro}</p>
 
 {points_html}
 <p>{conclusion}</p>
+
+{cta}
 
 <p><em>Tags: Study Tips, Smart Study Tips, {label}</em></p>
 """
@@ -2086,8 +2142,13 @@ def create_pin_image(
     badge_text = f"PIN {pin_num}"
     draw.text((30, 15), badge_text, font=domain_font, fill="white")
 
-    # Title area
-    title_text = f"5 {topic} Tips\nThat Actually Work"
+    # Title area — use rotating high-converting title
+    day = datetime.datetime.utcnow().day
+    title_text = PIN_TITLE_TEMPLATES[(day + pin_num) % 15]
+    # Wrap long titles into 2 lines for image display
+    words = title_text.split()
+    mid = len(words) // 2
+    title_text = " ".join(words[:mid]) + "\n" + " ".join(words[mid:])
     margin = 60
     max_text_w = W - 2 * margin
     lines = []
@@ -2286,8 +2347,12 @@ def schedule_buffer_pins(
             tzinfo=datetime.timezone.utc
         ).isoformat()
 
-        text = f"5 {topic} Tips That Actually Work 📚 #StudyTips #SmartStudy #StudentLife"
-        pin_title = f"5 {topic} Tips for Students That Actually Work"
+        # Rotate pin title: use (day + pin_index) % 15
+        pin_title = PIN_TITLE_TEMPLATES[(today.day + i) % 15]
+
+        # Rotate pin description: use (day + pin_index) % 7
+        desc_template = PIN_DESC_TEMPLATES[(today.day + i) % 7]
+        text = desc_template.format(n=5, topic=topic)
 
         schedule_buffer_pin(
             token=token,
