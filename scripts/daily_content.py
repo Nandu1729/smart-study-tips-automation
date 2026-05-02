@@ -2455,9 +2455,12 @@ def schedule_buffer_pins(
         pin_title = PIN_TITLE_TEMPLATES[(today.day + i) % 15]
 
         # Rotate pin description: use (day + pin_index) % 7
+        # Include date so Buffer never flags as duplicate across days
+        date_str = today.strftime("%b %d")
         desc_template = PIN_DESC_TEMPLATES[(today.day + i) % 7]
-        text = desc_template.format(n=5, topic=topic)
+        text = desc_template.format(n=5, topic=topic) + f" [{date_str}]"
 
+        print(f"[Step 6] Pin {i+1} → Blog URL: {link_with_utm}")
         schedule_buffer_pin(
             token=token,
             channel_id=PINTEREST_CHANNEL_ID,
