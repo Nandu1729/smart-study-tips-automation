@@ -2367,7 +2367,10 @@ def schedule_buffer_pin(
                             "url": picture_url,
                             "metadata": {"altText": pin_title}
                         }
-                    ]
+                    ],
+                    "link": {
+                        "url": link
+                    }
                 },
                 "metadata": {
                     "pinterest": {
