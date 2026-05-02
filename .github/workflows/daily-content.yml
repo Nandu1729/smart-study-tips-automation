@@ -2,7 +2,7 @@ name: Daily Content Workflow
 
 on:
   schedule:
-    - cron: '30 11 * * *'
+    - cron: '0 13 * * *'
   workflow_dispatch:
 
 jobs:
