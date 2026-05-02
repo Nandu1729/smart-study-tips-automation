@@ -2414,7 +2414,7 @@ def schedule_buffer_pins(
 
         schedule_buffer_pin(
             token=token,
-            profile_id=PINTEREST_CHANNEL_ID,
+            channel_id=PINTEREST_CHANNEL_ID,
             text=text,
             scheduled_at=scheduled_at,
             link=link_with_utm,
