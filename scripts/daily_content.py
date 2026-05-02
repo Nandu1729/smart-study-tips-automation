@@ -2290,34 +2290,64 @@ def create_pin_image(
     accent = color_scheme["accent"]
     text_color = color_scheme["text"]
 
-    # ── 20 rotating study background photos (Unsplash, permanent URLs) ──
-    STUDY_BG_PHOTOS = [
-        "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=1000&h=1500&fit=crop",  # books warm light
-        "https://images.unsplash.com/photo-1501504905252-473c47e087f8?w=1000&h=1500&fit=crop",  # laptop desk
-        "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1000&h=1500&fit=crop",  # writing notes
-        "https://images.unsplash.com/photo-1488190211105-8b0e65b80b4e?w=1000&h=1500&fit=crop",  # laptop + coffee
-        "https://images.unsplash.com/photo-1513258496099-48168024aec0?w=1000&h=1500&fit=crop",  # study desk setup
-        "https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=1000&h=1500&fit=crop",  # open notebook pen
-        "https://images.unsplash.com/photo-1518133910546-b6c2fb7d79e3?w=1000&h=1500&fit=crop",  # stack of books
-        "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=1000&h=1500&fit=crop",  # classroom seats
-        "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1000&h=1500&fit=crop",  # group studying laptops
-        "https://images.unsplash.com/photo-1606761568499-6d2451b23c66?w=1000&h=1500&fit=crop",  # desk plant minimal
-        "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=1000&h=1500&fit=crop",  # coffee + book
-        "https://images.unsplash.com/photo-1471107340929-a87cd0f5b5f3?w=1000&h=1500&fit=crop",  # pen notebook flat lay
-        "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1000&h=1500&fit=crop",  # student reading
-        "https://images.unsplash.com/photo-1532619675605-1ede6c2ed2b0?w=1000&h=1500&fit=crop",  # library books aisle
-        "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=1000&h=1500&fit=crop",  # books colourful spines
-        "https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=1000&h=1500&fit=crop",  # student writing exam
-        "https://images.unsplash.com/photo-1491841573634-28140fc7ced7?w=1000&h=1500&fit=crop",  # headphones + laptop
-        "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1000&h=1500&fit=crop",  # to-do list planning
-        "https://images.unsplash.com/photo-1434626881859-194d67b2b86f?w=1000&h=1500&fit=crop",  # coffee laptop morning
-        "https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=1000&h=1500&fit=crop",  # library cosy reading
-    ]
+    # ── Topic-matched background photos (Unsplash, permanent URLs) ──
+    # Photos are grouped by study topic keyword so the background
+    # visually matches what the pin is about.
+    TOPIC_PHOTOS = {
+        # Memory / recall / brain
+        "memory":    "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=1000&h=1500&fit=crop",
+        "recall":    "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=1000&h=1500&fit=crop",
+        "palace":    "https://images.unsplash.com/photo-1532619675605-1ede6c2ed2b0?w=1000&h=1500&fit=crop",
+        "spaced":    "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1000&h=1500&fit=crop",
+        # Note-taking / writing
+        "note":      "https://images.unsplash.com/photo-1471107340929-a87cd0f5b5f3?w=1000&h=1500&fit=crop",
+        "cornell":   "https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=1000&h=1500&fit=crop",
+        "mind map":  "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1000&h=1500&fit=crop",
+        "writing":   "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1000&h=1500&fit=crop",
+        # Exam / test
+        "exam":      "https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=1000&h=1500&fit=crop",
+        "test":      "https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=1000&h=1500&fit=crop",
+        "anxiety":   "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1000&h=1500&fit=crop",
+        "revision":  "https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=1000&h=1500&fit=crop",
+        "confidence":"https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1000&h=1500&fit=crop",
+        # Focus / productivity / pomodoro
+        "focus":     "https://images.unsplash.com/photo-1491841573634-28140fc7ced7?w=1000&h=1500&fit=crop",
+        "pomodoro":  "https://images.unsplash.com/photo-1434626881859-194d67b2b86f?w=1000&h=1500&fit=crop",
+        "deep work": "https://images.unsplash.com/photo-1501504905252-473c47e087f8?w=1000&h=1500&fit=crop",
+        "distract":  "https://images.unsplash.com/photo-1491841573634-28140fc7ced7?w=1000&h=1500&fit=crop",
+        "routine":   "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1000&h=1500&fit=crop",
+        "habit":     "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1000&h=1500&fit=crop",
+        "goal":      "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?w=1000&h=1500&fit=crop",
+        # Sleep / health / brain food
+        "sleep":     "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=1000&h=1500&fit=crop",
+        "brain":     "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=1000&h=1500&fit=crop",
+        "food":      "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=1000&h=1500&fit=crop",
+        "exercise":  "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1000&h=1500&fit=crop",
+        # Reading / speed reading
+        "reading":   "https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=1000&h=1500&fit=crop",
+        "speed":     "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1000&h=1500&fit=crop",
+        "comprehend":"https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=1000&h=1500&fit=crop",
+        # Group / teaching / mistakes
+        "group":     "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1000&h=1500&fit=crop",
+        "teach":     "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=1000&h=1500&fit=crop",
+        "mistake":   "https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=1000&h=1500&fit=crop",
+        # Apps / digital / flashcard
+        "app":       "https://images.unsplash.com/photo-1501504905252-473c47e087f8?w=1000&h=1500&fit=crop",
+        "digital":   "https://images.unsplash.com/photo-1488190211105-8b0e65b80b4e?w=1000&h=1500&fit=crop",
+        "flashcard": "https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=1000&h=1500&fit=crop",
+        # Visual / learning style
+        "visual":    "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1000&h=1500&fit=crop",
+        # Default / generic study desk
+        "default":   "https://images.unsplash.com/photo-1513258496099-48168024aec0?w=1000&h=1500&fit=crop",
+    }
 
-    # Pick photo: rotates every day, each pin_num gets a different photo
-    day_now = datetime.datetime.utcnow().day
-    photo_idx = (day_now * 5 + pin_num - 1) % len(STUDY_BG_PHOTOS)
-    photo_url = STUDY_BG_PHOTOS[photo_idx]
+    # Match topic string to best photo keyword (case-insensitive)
+    topic_lower = topic.lower()
+    photo_url = TOPIC_PHOTOS["default"]
+    for keyword, url in TOPIC_PHOTOS.items():
+        if keyword != "default" and keyword in topic_lower:
+            photo_url = url
+            break
 
     # Download photo; fall back to solid colour if it fails
     img = None
