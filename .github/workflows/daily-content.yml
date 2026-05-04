@@ -24,11 +24,17 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Install Playwright + Chromium
+        run: |
+          pip install playwright
+          playwright install chromium --with-deps
+
       - name: Run daily content workflow
         env:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           BLOGGER_REFRESH_TOKEN: ${{ secrets.BLOGGER_REFRESH_TOKEN }}
+          BLOGGER_SESSION_STATE: ${{ secrets.BLOGGER_SESSION_STATE }}
           BLOGGER_BLOG_ID: "5700991576649979749"
           BUFFER_TOKEN: ${{ secrets.BUFFER_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

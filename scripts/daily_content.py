@@ -2213,43 +2213,145 @@ def get_blogger_token() -> str:
 
 
 # ─────────────────────────────────────────────
-# STEP 3: CREATE BLOG POSTS
+# STEP 3: CREATE BLOG POSTS (Playwright UI automation)
 # ─────────────────────────────────────────────
 
-def create_blog_post(token: str, blog_id: str, topic: str) -> str | None:
-    """Create a Blogger post. Returns the post URL or None on failure."""
+def create_blog_post_playwright(topic: str, blog_id: str, session_state: dict) -> str | None:
+    """Create a Blogger post via browser automation. Returns post URL or None."""
+    import asyncio
+    from playwright.async_api import async_playwright
+
     post_data = build_html_post(topic)
-    payload = {
-        "title": post_data["title"],
-        "content": post_data["html"],
-        "labels": post_data["labels"],
-    }
-    url = f"https://www.googleapis.com/blogger/v3/blogs/{blog_id}/posts/"
-    try:
-        resp = requests.post(
-            url,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=30,
-        )
-        resp.raise_for_status()
-        post_url = resp.json().get("url", "")
-        print(f"[Step 3] Created post for '{topic}': {post_url}")
-        return post_url
-    except Exception as exc:
-        print(f"[Step 3] ERROR creating post for '{topic}': {exc}")
-        return None
+
+    async def _run():
+        async with async_playwright() as p:
+            # Use real Chrome on macOS, bundled Chromium on Linux (CI)
+            import platform
+            launch_kwargs = {"headless": True}
+            if platform.system() == "Darwin":
+                launch_kwargs["channel"] = "chrome"
+            browser = await p.chromium.launch(**launch_kwargs)
+            context = await browser.new_context(storage_state=session_state)
+            page = await context.new_page()
+
+            try:
+                # Navigate to posts list and click New Post via JS
+                await page.goto(
+                    f"https://www.blogger.com/blog/posts/{blog_id}",
+                    wait_until="networkidle", timeout=60000
+                )
+                await page.wait_for_timeout(2000)
+
+                if "accounts.google.com" in page.url:
+                    print("[Step 3] ERROR: Session expired — redirected to login")
+                    await browser.close()
+                    return None
+
+                # Click New Post button via JavaScript (avoids visibility issues)
+                await page.evaluate(
+                    '() => { document.querySelector(\'[aria-label="Create new post"]\').click(); }'
+                )
+                await page.wait_for_load_state("networkidle", timeout=30000)
+                await page.wait_for_timeout(3000)
+
+                # Fill title
+                await page.fill('[aria-label="Title"]', post_data["title"])
+
+                # Inject HTML content into editor iframe
+                content_escaped = json.dumps(post_data["html"])
+                await page.evaluate(f"""
+                    () => {{
+                        const frames = document.querySelectorAll('iframe');
+                        for (const f of frames) {{
+                            try {{
+                                const body = f.contentDocument.body;
+                                if (body) {{ body.innerHTML = {content_escaped}; return; }}
+                            }} catch(e) {{}}
+                        }}
+                    }}
+                """)
+
+                # Fill labels
+                labels_el = await page.query_selector('[aria-label="Separate labels with commas"]')
+                if labels_el:
+                    await labels_el.click()
+                    await labels_el.type(", ".join(post_data.get("labels", [])))
+
+                await page.wait_for_timeout(1000)
+
+                # Click Publish button
+                await page.locator('[aria-label="Publish"]:has-text("PUBLISH")').first.click(force=True)
+                await page.wait_for_timeout(2000)
+
+                # Click CONFIRM dialog via JavaScript
+                await page.evaluate("""
+                    () => {
+                        const btns = Array.from(document.querySelectorAll("button, [role='button']"));
+                        const confirm = btns.find(b => b.innerText.trim() === 'CONFIRM');
+                        if (confirm) confirm.click();
+                    }
+                """)
+                await page.wait_for_timeout(5000)
+
+                # Fetch latest post URL via Blogger read API
+                post_url = None
+                try:
+                    token_resp = requests.post(
+                        "https://oauth2.googleapis.com/token",
+                        data={
+                            "client_id": os.environ.get("GOOGLE_CLIENT_ID", ""),
+                            "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET", ""),
+                            "refresh_token": os.environ.get("BLOGGER_REFRESH_TOKEN", ""),
+                            "grant_type": "refresh_token",
+                        }, timeout=15
+                    )
+                    if token_resp.ok:
+                        t = token_resp.json().get("access_token", "")
+                        posts_resp = requests.get(
+                            f"https://www.googleapis.com/blogger/v3/blogs/{blog_id}/posts"
+                            f"?maxResults=1&orderBy=published",
+                            headers={"Authorization": f"Bearer {t}"}, timeout=15
+                        )
+                        if posts_resp.ok:
+                            items = posts_resp.json().get("items", [])
+                            if items:
+                                post_url = items[0].get("url", "")
+                except Exception:
+                    pass
+
+                print(f"[Step 3] Created post for '{topic}': {post_url}")
+                await browser.close()
+                return post_url
+
+            except Exception as exc:
+                print(f"[Step 3] ERROR creating post for '{topic}': {exc}")
+                try:
+                    await page.screenshot(path=f"/tmp/blogger_error_{topic[:20].replace(' ','_')}.png")
+                except Exception:
+                    pass
+                await browser.close()
+                return None
+
+    return asyncio.run(_run())
 
 
 def create_blog_posts(token: str, topics: list[str]) -> list[str | None]:
     blog_id = os.environ.get("BLOGGER_BLOG_ID", BLOGGER_BLOG_ID)
+
+    # Load Playwright session state from env var
+    session_b64 = os.environ.get("BLOGGER_SESSION_STATE", "")
+    if not session_b64:
+        print("[Step 3] ERROR: BLOGGER_SESSION_STATE secret not set. Run setup_blogger_session.py first.")
+        return [None] * len(topics)
+
+    import base64
+    session_state = json.loads(base64.b64decode(session_b64).decode())
+
     urls = []
     for topic in topics:
-        post_url = create_blog_post(token, blog_id, topic)
+        post_url = create_blog_post_playwright(topic, blog_id, session_state)
         urls.append(post_url)
+        time.sleep(3)  # small gap between posts
     return urls
 
 
