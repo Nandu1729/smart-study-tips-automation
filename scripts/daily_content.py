@@ -2225,13 +2225,27 @@ def create_blog_post_playwright(topic: str, blog_id: str, session_state: dict) -
 
     async def _run():
         async with async_playwright() as p:
-            # Use real Chrome on macOS, bundled Chromium on Linux (CI)
-            import platform
-            launch_kwargs = {"headless": True}
-            if platform.system() == "Darwin":
-                launch_kwargs["channel"] = "chrome"
-            browser = await p.chromium.launch(**launch_kwargs)
-            context = await browser.new_context(storage_state=session_state)
+            # Always use Chrome channel (installed on CI via workflow step)
+            browser = await p.chromium.launch(
+                headless=True,
+                channel="chrome",
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                ]
+            )
+            context = await browser.new_context(
+                storage_state=session_state,
+                user_agent=(
+                    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                ),
+            )
+            # Hide webdriver flag
+            await context.add_init_script(
+                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+            )
             page = await context.new_page()
 
             try:
