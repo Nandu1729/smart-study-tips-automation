@@ -2238,8 +2238,9 @@ def create_blog_post_playwright(topic: str, blog_id: str, session_state: dict) -
             context = await browser.new_context(
                 storage_state=session_state,
                 user_agent=(
-                    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/124.0.0.0 Safari/537.36"
                 ),
             )
             # Hide webdriver flag
@@ -2256,7 +2257,8 @@ def create_blog_post_playwright(topic: str, blog_id: str, session_state: dict) -
                 )
                 await page.wait_for_timeout(2000)
 
-                if "accounts.google.com" in page.url:
+                print(f"[Step 3] Page URL after nav: {page.url[:120]}")
+                if "accounts.google.com" in page.url or "signin" in page.url:
                     print("[Step 3] ERROR: Session expired — redirected to login")
                     await browser.close()
                     return None

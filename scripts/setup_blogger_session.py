@@ -1,50 +1,127 @@
 #!/usr/bin/env python3
 """
-One-time setup: captures your Google/Blogger session cookies.
-Run in Terminal, log in when Chrome opens, then save the output as
-GitHub secret BLOGGER_SESSION_STATE.
+One-time setup: extracts Google session cookies directly from Chrome Profile 5
+(where a.n.k.nandu2133@gmail.com is already logged in) and saves them
+as a Playwright storage_state file, then base64-encodes for GitHub secret.
 
 Usage:
-    pip3 install playwright
-    python3 -m playwright install chromium
+    pip3 install browser-cookie3
     python3 scripts/setup_blogger_session.py
 """
 
-import base64, pathlib, asyncio, sys
-from playwright.async_api import async_playwright
+import json, base64, pathlib, datetime
 
-STATE_FILE = pathlib.Path("blogger_session.json")
+STATE_FILE = pathlib.Path("/Users/nandyyy/blogger_session.json")
+CHROME_COOKIES_DB = (
+    "/Users/nandyyy/Library/Application Support/Google/Chrome/Profile 5/Cookies"
+)
+TARGET_DOMAINS = [".google.com", ".blogger.com", "accounts.google.com",
+                  "www.blogger.com", "www.google.com"]
 
-async def main():
-    async with async_playwright() as p:
-        # Use real installed Chrome (not Playwright's Chromium) to avoid Google blocking
-        browser = await p.chromium.launch(
-            headless=False,
-            channel="chrome",   # use real Chrome
-            args=["--disable-blink-features=AutomationControlled"]
+try:
+    import browser_cookie3
+except ImportError:
+    import subprocess, sys
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "browser-cookie3"])
+    import browser_cookie3
+
+
+def extract_cookies():
+    cookiejar = browser_cookie3.chrome(
+        domain_name=".google.com",
+        cookie_file=CHROME_COOKIES_DB,
+    )
+
+    cookies = []
+    now_ts = datetime.datetime.now().timestamp()
+    seen = set()
+
+    for c in cookiejar:
+        key = (c.name, c.domain, c.path)
+        if key in seen:
+            continue
+        seen.add(key)
+
+        # Skip already-expired cookies
+        if c.expires and c.expires > 0 and c.expires < now_ts:
+            continue
+
+        cookie = {
+            "name": str(c.name),
+            "value": str(c.value),
+            "domain": str(c.domain),
+            "path": str(c.path or "/"),
+            "secure": bool(c.secure),
+            "httpOnly": False,
+            "sameSite": "None",
+        }
+        if c.expires and c.expires > 0:
+            cookie["expires"] = float(c.expires)
+
+        cookies.append(cookie)
+
+    # Also grab blogger.com cookies
+    try:
+        jar2 = browser_cookie3.chrome(
+            domain_name=".blogger.com",
+            cookie_file=CHROME_COOKIES_DB,
         )
-        context = await browser.new_context()
-        page = await context.new_page()
+        for c in jar2:
+            key = (c.name, c.domain, c.path)
+            if key in seen:
+                continue
+            seen.add(key)
+            if c.expires and c.expires > 0 and c.expires < now_ts:
+                continue
+            cookie = {
+                "name": str(c.name),
+                "value": str(c.value),
+                "domain": str(c.domain),
+                "path": str(c.path or "/"),
+                "secure": bool(c.secure),
+                "httpOnly": False,
+                "sameSite": "None",
+            }
+            if c.expires and c.expires > 0:
+                cookie["expires"] = float(c.expires)
+            cookies.append(cookie)
+    except Exception:
+        pass
 
-        print("Opening Blogger in Chrome...")
-        await page.goto("https://accounts.google.com/signin/v2/identifier?continue=https://www.blogger.com/")
-        print("\nPlease log in as a.n.k.nandu2133@gmail.com in the browser window.")
-        print("Once you see the Blogger dashboard (Smart Study Tips), come back here.")
+    return cookies
 
-        sys.stdin = open("/dev/tty")
-        input("\nPress Enter once you're on the Blogger dashboard: ")
 
-        await context.storage_state(path=str(STATE_FILE))
-        await browser.close()
+def main():
+    print("Extracting cookies from Chrome Profile 5...")
+    cookies = extract_cookies()
+    print(f"Found {len(cookies)} cookies total")
+
+    # Show key auth cookies
+    auth_names = {"SID", "HSID", "SSID", "APISID", "SAPISID",
+                  "__Secure-1PSID", "__Secure-3PSID", "__Secure-3PSIDTS",
+                  "__Secure-1PAPISID", "__Secure-3PAPISID"}
+    found_auth = [c for c in cookies if c["name"] in auth_names]
+    print(f"Auth cookies found: {[c['name'] for c in found_auth]}")
+
+    if len(found_auth) < 3:
+        print("\n⚠ WARNING: Very few auth cookies found.")
+        print("Make sure Chrome Profile 5 is logged in as a.n.k.nandu2133@gmail.com")
+        print("and that Chrome is CLOSED (so the DB isn't locked).")
+
+    state = {"cookies": cookies, "origins": []}
+    STATE_FILE.write_text(json.dumps(state, indent=2))
+    print(f"\n✅ Session saved to {STATE_FILE}  ({len(cookies)} cookies)")
 
     raw = STATE_FILE.read_bytes()
     encoded = base64.b64encode(raw).decode()
 
-    print(f"\n✅ Session saved!")
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("COPY EVERYTHING BELOW AS GITHUB SECRET: BLOGGER_SESSION_STATE")
-    print("="*60)
+    print("=" * 60)
     print(encoded)
-    print("="*60)
+    print("=" * 60)
+    print(f"\nSecret length: {len(encoded)} characters")
 
-asyncio.run(main())
+
+if __name__ == "__main__":
+    main()
