@@ -2272,20 +2272,75 @@ def create_blog_post_playwright(topic: str, blog_id: str, session_state: dict) -
 
                 # Fill title
                 await page.fill('[aria-label="Title"]', post_data["title"])
+                await page.wait_for_timeout(500)
 
-                # Inject HTML content into editor iframe
-                content_escaped = json.dumps(post_data["html"])
-                await page.evaluate(f"""
-                    () => {{
-                        const frames = document.querySelectorAll('iframe');
-                        for (const f of frames) {{
-                            try {{
-                                const body = f.contentDocument.body;
-                                if (body) {{ body.innerHTML = {content_escaped}; return; }}
-                            }} catch(e) {{}}
+                # Switch to HTML source mode via the toolbar button (pencil/code icon)
+                # Blogger's HTML toggle button has aria-label containing "HTML"
+                html_btn = await page.query_selector('[aria-label="HTML"]')
+                if not html_btn:
+                    # Try the source code icon (<>) — look by title or tooltip
+                    html_btn = await page.query_selector('[title="HTML"]')
+                if not html_btn:
+                    # Try keyboard shortcut Ctrl+Shift+H to toggle HTML mode
+                    await page.keyboard.press("Control+Shift+H")
+                    await page.wait_for_timeout(1000)
+                else:
+                    await html_btn.click()
+                    await page.wait_for_timeout(1000)
+
+                # The HTML source textarea should now be visible
+                # Try to find it and replace its content
+                html_injected = False
+
+                # Method 1: textarea or pre[contenteditable] in the source view
+                source_area = await page.query_selector('textarea.html-editor, div.html-editor, [aria-label="HTML editor"]')
+                if source_area:
+                    await source_area.click()
+                    await page.keyboard.press("Control+a")
+                    await source_area.fill(post_data["html"])
+                    html_injected = True
+                    print("[Step 3] Injected via HTML source textarea")
+
+                if not html_injected:
+                    # Method 2: find a contenteditable div/pre that appeared after toggle
+                    # and use execCommand insertHTML on the editor iframe
+                    content_escaped = json.dumps(post_data["html"])
+                    result = await page.evaluate(f"""
+                        () => {{
+                            // Try to find the HTML source text area (may be a pre or textarea)
+                            const ta = document.querySelector('textarea');
+                            if (ta && ta.offsetParent !== null) {{
+                                ta.value = {content_escaped};
+                                ta.dispatchEvent(new Event('input', {{bubbles: true}}));
+                                return 'textarea';
+                            }}
+                            // Fall back: inject via iframe contenteditable with execCommand
+                            const frames = document.querySelectorAll('iframe');
+                            for (const f of frames) {{
+                                try {{
+                                    const doc = f.contentDocument;
+                                    const body = doc.body;
+                                    if (body && body.isContentEditable) {{
+                                        body.focus();
+                                        doc.execCommand('selectAll', false, null);
+                                        doc.execCommand('insertHTML', false, {content_escaped});
+                                        return 'iframe-execCommand';
+                                    }}
+                                    if (body) {{
+                                        body.focus();
+                                        body.innerHTML = {content_escaped};
+                                        body.dispatchEvent(new Event('input', {{bubbles: true}}));
+                                        return 'iframe-innerHTML';
+                                    }}
+                                }} catch(e) {{}}
+                            }}
+                            return 'none';
                         }}
-                    }}
-                """)
+                    """)
+                    print(f"[Step 3] HTML injection method: {result}")
+                    html_injected = result != 'none'
+
+                await page.wait_for_timeout(1000)
 
                 # Fill labels
                 labels_el = await page.query_selector('[aria-label="Separate labels with commas"]')
@@ -2799,8 +2854,8 @@ def schedule_buffer_pins(
         pin_time = target_base + datetime.timedelta(minutes=5 * i)
         scheduled_at = pin_time.isoformat()
 
-        # Rotate pin title: use (day + pin_index) % 15
-        pin_title = PIN_TITLE_TEMPLATES[(today.day + i) % 15]
+        # Pin title = the actual blog post title it links to
+        pin_title = build_html_post(topic)["title"]
 
         # Rotate pin description: use (day + pin_index) % 7
         # Include date so Buffer never flags as duplicate across days
