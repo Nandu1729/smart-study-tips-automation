@@ -2742,9 +2742,12 @@ def schedule_buffer_pin(
 
         result = data.get("data", {}).get("createPost", {})
 
-        # Union type — check for error messages
+        # Union type — check for error messages (retry on transient gateway errors)
         if result.get("message"):
-            print(f"[Step 6] Buffer error: {result['message']}")
+            msg = result["message"]
+            print(f"[Step 6] Buffer error: {msg}")
+            if "Bad Gateway" in msg or "Gateway" in msg or "timeout" in msg.lower():
+                return None  # signal caller to retry
             return False
 
         post = result.get("post", {})
@@ -2806,15 +2809,22 @@ def schedule_buffer_pins(
         text = desc_template.format(n=5, topic=topic) + f" [{date_str}]"
 
         print(f"[Step 6] Pin {i+1} → Blog URL: {link_with_utm}")
-        schedule_buffer_pin(
-            token=token,
-            channel_id=PINTEREST_CHANNEL_ID,
-            text=text,
-            scheduled_at=scheduled_at,
-            link=link_with_utm,
-            picture_url=img_url,
-            pin_title=pin_title,
-        )
+        # Retry up to 3 times on transient gateway errors
+        for attempt in range(3):
+            result = schedule_buffer_pin(
+                token=token,
+                channel_id=PINTEREST_CHANNEL_ID,
+                text=text,
+                scheduled_at=scheduled_at,
+                link=link_with_utm,
+                picture_url=img_url,
+                pin_title=pin_title,
+            )
+            if result is None:  # transient — retry after delay
+                print(f"[Step 6] Retrying pin {i+1} (attempt {attempt+2}/3)...")
+                time.sleep(10)
+            else:
+                break
         # Brief pause to avoid rate limiting
         time.sleep(1)
 
