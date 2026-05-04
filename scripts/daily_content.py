@@ -2569,70 +2569,308 @@ def create_pin_image(
     draw.rectangle([0, BAR_H, W, BAR_H + 6],         fill=faint)
     draw.rectangle([0, H - BAR_H - 6, W, H - BAR_H], fill=faint)
 
-    # ── Fonts ────────────────────────────────────────────────────
-    try:
-        title_font  = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 72)
-        sub_font    = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 38)
-        bullet_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 36)
-        domain_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 38)
-        badge_font  = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32)
-    except OSError:
-        title_font = sub_font = bullet_font = domain_font = badge_font = ImageFont.load_default()
+    # ── Shared fonts (cross-platform: macOS + Linux CI) ──────────
+    _FONT_CANDIDATES_BOLD = [
+        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",   # macOS
+        "/System/Library/Fonts/Helvetica.ttc",                  # macOS fallback
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", # Linux
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+    ]
+    _FONT_CANDIDATES_REG = [
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/System/Library/Fonts/SFNS.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+    ]
+    def tf(size):
+        for p in _FONT_CANDIDATES_BOLD:
+            try: return ImageFont.truetype(p, size)
+            except: pass
+        return ImageFont.load_default()
+    def tr(size):
+        for p in _FONT_CANDIDATES_REG:
+            try: return ImageFont.truetype(p, size)
+            except: pass
+        return ImageFont.load_default()
 
-    # ── Top bar: brand name centred ──────────────────────────────
-    brand = "Smart Study Tips"
-    bb = draw.textbbox((0, 0), brand, font=badge_font)
-    bw, bh = bb[2] - bb[0], bb[3] - bb[1]
-    draw.text(((W - bw) // 2, (BAR_H - bh) // 2), brand, font=badge_font, fill="white")
-
-    # ── White card (title only — no bullets, no subtitle) ────────
-    CARD_X1, CARD_Y1 = 60, BAR_H + 80
-    CARD_X2, CARD_Y2 = W - 60, H - BAR_H - 80
-    draw.rectangle([CARD_X1, CARD_Y1, CARD_X2, CARD_Y2], fill="white")
-    draw.rectangle([CARD_X1, CARD_Y1, CARD_X2, CARD_Y2], outline=accent, width=5)
-
-    # ── Title — large, bold, horizontally & vertically centred ───
-    day = datetime.datetime.utcnow().day
-    title_text = PIN_TITLE_TEMPLATES[(day + pin_num) % 15]
-    max_text_w = (CARD_X2 - CARD_X1) - 100   # 50px padding each side
-
-    lines = []
-    for raw_line in title_text.split("\n"):
-        lines.extend(wrap_text(raw_line, max_text_w, title_font, draw))
-
-    line_h = 92
-    total_title_h = len(lines) * line_h
-
-    # Vertically centre the title block in the card
-    card_center_y = (CARD_Y1 + CARD_Y2) // 2
-    title_y = card_center_y - total_title_h // 2
-
-    for line in lines:
-        bb = draw.textbbox((0, 0), line, font=title_font)
-        tw = bb[2] - bb[0]
-        x  = (W - tw) // 2
-        # Soft shadow
-        draw.text((x + 3, title_y + 3), line, font=title_font, fill=(200, 200, 200))
-        draw.text((x, title_y),         line, font=title_font, fill=text_color)
-        title_y += line_h
-
-    # ── "Read more →" nudge below title ──────────────────────────
-    nudge = "Read more →"
-    bb = draw.textbbox((0, 0), nudge, font=sub_font)
-    nw, nh = bb[2] - bb[0], bb[3] - bb[1]
-    nudge_y = card_center_y + total_title_h // 2 + 40
-    draw.text(((W - nw) // 2, nudge_y), nudge, font=sub_font, fill=accent)
-
-    # ── Bottom bar: blog domain centred ──────────────────────────
+    brand  = "Smart Study Tips"
     domain = "smartstudytipshub1.blogspot.com"
-    bb = draw.textbbox((0, 0), domain, font=domain_font)
-    dw, dh = bb[2] - bb[0], bb[3] - bb[1]
-    draw.text(((W - dw) // 2, H - BAR_H + (BAR_H - dh) // 2),
-              domain, font=domain_font, fill="white")
+    # Use the actual blog post title for this pin
+    pin_title_text = build_html_post(topic)["title"]
+
+    style = (pin_num - 1) % 5   # 0–4, cycles so every day looks different
+
+    # ═══════════════════════════════════════════════════════════════
+    # STYLE 0 — Bold card on photo
+    # Top accent bar · white card with title · bottom domain bar
+    # ═══════════════════════════════════════════════════════════════
+    if style == 0:
+        draw = ImageDraw.Draw(img)
+        BAR_H = 110
+        # Accent bars
+        bar = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        bd  = ImageDraw.Draw(bar)
+        bd.rectangle([0, 0, W, BAR_H],         fill=(*accent, 250))
+        bd.rectangle([0, H - BAR_H, W, H],     fill=(*accent, 250))
+        img = img.convert("RGBA")
+        img = Image.alpha_composite(img, bar).convert("RGB")
+        draw = ImageDraw.Draw(img)
+
+        # Brand
+        f_brand = tf(36)
+        bb = draw.textbbox((0,0), brand, font=f_brand)
+        draw.text(((W-(bb[2]-bb[0]))//2, (BAR_H-(bb[3]-bb[1]))//2), brand, font=f_brand, fill="white")
+
+        # White card
+        CX1, CY1, CX2, CY2 = 55, BAR_H+70, W-55, H-BAR_H-70
+        draw.rectangle([CX1, CY1, CX2, CY2], fill="white")
+        draw.rectangle([CX1, CY1, CX2, CY2], outline=accent, width=6)
+
+        # Title centred in card
+        f_title = tf(68)
+        lines = wrap_text(pin_title_text, (CX2-CX1)-80, f_title, draw)
+        lh = 88
+        ty = (CY1+CY2)//2 - (len(lines)*lh)//2
+        for ln in lines:
+            bb = draw.textbbox((0,0), ln, font=f_title)
+            x = (W-(bb[2]-bb[0]))//2
+            draw.text((x+2,ty+2), ln, font=f_title, fill=(210,210,210))
+            draw.text((x,ty),     ln, font=f_title, fill=text_color)
+            ty += lh
+
+        # "Read more →"
+        f_sub = tf(36)
+        nudge = "Read more  →"
+        bb = draw.textbbox((0,0), nudge, font=f_sub)
+        draw.text(((W-(bb[2]-bb[0]))//2, CY2+18), nudge, font=f_sub, fill=accent)
+
+        # Domain
+        f_dom = tf(32)
+        bb = draw.textbbox((0,0), domain, font=f_dom)
+        draw.text(((W-(bb[2]-bb[0]))//2, H-BAR_H+(BAR_H-(bb[3]-bb[1]))//2), domain, font=f_dom, fill="white")
+
+    # ═══════════════════════════════════════════════════════════════
+    # STYLE 1 — Dark luxury (no photo — deep dark bg, gold accents)
+    # ═══════════════════════════════════════════════════════════════
+    elif style == 1:
+        # Override with a dark gradient base regardless of photo
+        dark_base = Image.new("RGB", (W, H), (18, 18, 28))
+        # Radial-ish glow in top-left using accent
+        glow = Image.new("RGBA", (W, H), (0,0,0,0))
+        gd   = ImageDraw.Draw(glow)
+        for radius in range(500, 0, -20):
+            alpha = int(80 * (1 - radius/500))
+            gd.ellipse([-radius+200, -radius+200, radius+200, radius+200],
+                       fill=(*accent, alpha))
+        dark_base = dark_base.convert("RGBA")
+        img = Image.alpha_composite(dark_base, glow).convert("RGB")
+        draw = ImageDraw.Draw(img)
+
+        GOLD  = (255, 210, 100)
+        WHITE = (240, 240, 240)
+
+        # Top decorative line
+        draw.rectangle([60, 90, W-60, 96], fill=GOLD)
+        draw.rectangle([60, 104, W-60, 107], fill=(*accent, 180))
+
+        # Brand
+        f_brand = tf(38)
+        bb = draw.textbbox((0,0), brand, font=f_brand)
+        draw.text(((W-(bb[2]-bb[0]))//2, 30), brand, font=f_brand, fill=GOLD)
+
+        # Big decorative number / emoji graphic
+        f_big = tf(180)
+        big_num = "5"
+        bb = draw.textbbox((0,0), big_num, font=f_big)
+        bw = bb[2]-bb[0]
+        # Draw faint ghost number as background graphic
+        draw.text(((W-bw)//2, 160), big_num, font=f_big, fill=(*accent, 30))
+
+        # Title
+        f_title = tf(72)
+        lines = wrap_text(pin_title_text, W-120, f_title, draw)
+        lh = 94
+        ty = 380
+        for ln in lines:
+            bb = draw.textbbox((0,0), ln, font=f_title)
+            x = (W-(bb[2]-bb[0]))//2
+            draw.text((x+2,ty+2), ln, font=f_title, fill=(0,0,0,120))
+            draw.text((x,ty),     ln, font=f_title, fill=WHITE)
+            ty += lh
+
+        # Decorative dots row
+        dot_y = ty + 40
+        for di in range(5):
+            dx = W//2 - 60 + di*30
+            draw.ellipse([dx-8, dot_y-8, dx+8, dot_y+8], fill=GOLD)
+
+        # Tips preview label
+        f_sub = tr(36)
+        tips_label = f"5 tips inside  ↓"
+        bb = draw.textbbox((0,0), tips_label, font=f_sub)
+        draw.text(((W-(bb[2]-bb[0]))//2, dot_y+50), tips_label, font=f_sub, fill=GOLD)
+
+        # Bottom line + domain
+        draw.rectangle([60, H-110, W-60, H-104], fill=GOLD)
+        f_dom = tf(32)
+        bb = draw.textbbox((0,0), domain, font=f_dom)
+        draw.text(((W-(bb[2]-bb[0]))//2, H-85), domain, font=f_dom, fill=GOLD)
+
+    # ═══════════════════════════════════════════════════════════════
+    # STYLE 2 — Bright split: top half solid accent colour, bottom white
+    # ═══════════════════════════════════════════════════════════════
+    elif style == 2:
+        img = Image.new("RGB", (W, H), "white")
+        draw = ImageDraw.Draw(img)
+
+        # Top half — solid accent
+        draw.rectangle([0, 0, W, H//2 + 60], fill=accent)
+
+        # Diagonal stripe divider
+        from PIL import ImageDraw as ID2
+        points = [(0, H//2+20), (W, H//2+100), (W, H//2+60), (0, H//2-20)]
+        draw.polygon(points, fill=accent)
+
+        # Brand at top
+        f_brand = tf(40)
+        bb = draw.textbbox((0,0), brand, font=f_brand)
+        draw.text(((W-(bb[2]-bb[0]))//2, 40), brand, font=f_brand, fill="white")
+
+        # Large emoji / icon graphic in top area
+        emojis = ["📚","🧠","✏️","🎯","⚡","🔥","💡","📖","🏆","⏰"]
+        import hashlib
+        emoji = emojis[int(hashlib.md5(topic.encode()).hexdigest(),16) % len(emojis)]
+        f_emoji = tf(160)
+        bb = draw.textbbox((0,0), emoji, font=f_emoji)
+        draw.text(((W-(bb[2]-bb[0]))//2, 110), emoji, font=f_emoji, fill="white")
+
+        # Title on white bottom — dark text
+        f_title = tf(66)
+        lines = wrap_text(pin_title_text, W-100, f_title, draw)
+        lh = 86
+        ty = H//2 + 120
+        for ln in lines:
+            bb = draw.textbbox((0,0), ln, font=f_title)
+            x = (W-(bb[2]-bb[0]))//2
+            draw.text((x,ty), ln, font=f_title, fill=text_color)
+            ty += lh
+
+        # Accent underline
+        draw.rectangle([100, ty+10, W-100, ty+16], fill=accent)
+
+        # Domain at bottom
+        f_dom = tf(32)
+        bb = draw.textbbox((0,0), domain, font=f_dom)
+        draw.text(((W-(bb[2]-bb[0]))//2, H-60), domain, font=f_dom, fill=accent)
+
+    # ═══════════════════════════════════════════════════════════════
+    # STYLE 3 — Full photo bleed, bottom frosted panel
+    # ═══════════════════════════════════════════════════════════════
+    elif style == 3:
+        draw = ImageDraw.Draw(img)
+
+        # Frosted bottom panel (semi-transparent dark)
+        panel_y = H - 520
+        frost = Image.new("RGBA", (W, H), (0,0,0,0))
+        fd = ImageDraw.Draw(frost)
+        fd.rectangle([0, panel_y, W, H], fill=(10, 10, 30, 210))
+        img = img.convert("RGBA")
+        img = Image.alpha_composite(img, frost).convert("RGB")
+        draw = ImageDraw.Draw(img)
+
+        # Accent top stripe
+        draw.rectangle([0, 0, W, 10], fill=accent)
+
+        # Brand in top-left pill
+        f_brand = tf(34)
+        brand_short = "SmartStudyTips"
+        bb = draw.textbbox((0,0), brand_short, font=f_brand)
+        bw, bh = bb[2]-bb[0], bb[3]-bb[1]
+        pad = 16
+        draw.rounded_rectangle([30, 20, 30+bw+pad*2, 20+bh+pad], radius=20, fill=accent)
+        draw.text((30+pad, 20+pad//2), brand_short, font=f_brand, fill="white")
+
+        # Title in the frosted panel
+        f_title = tf(70)
+        lines = wrap_text(pin_title_text, W-100, f_title, draw)
+        lh = 90
+        ty = panel_y + 40
+        for ln in lines:
+            bb = draw.textbbox((0,0), ln, font=f_title)
+            x = (W-(bb[2]-bb[0]))//2
+            draw.text((x,ty), ln, font=f_title, fill="white")
+            ty += lh
+
+        # Accent CTA button shape
+        btn_y = ty + 20
+        draw.rounded_rectangle([150, btn_y, W-150, btn_y+70], radius=35, fill=accent)
+        f_btn = tf(34)
+        cta = "Read Full Guide  →"
+        bb = draw.textbbox((0,0), cta, font=f_btn)
+        draw.text(((W-(bb[2]-bb[0]))//2, btn_y+18), cta, font=f_btn, fill="white")
+
+        # Domain
+        f_dom = tr(30)
+        bb = draw.textbbox((0,0), domain, font=f_dom)
+        draw.text(((W-(bb[2]-bb[0]))//2, H-45), domain, font=f_dom, fill=(200,200,200))
+
+    # ═══════════════════════════════════════════════════════════════
+    # STYLE 4 — Geometric minimal (no photo, clean shapes + big text)
+    # ═══════════════════════════════════════════════════════════════
+    else:  # style == 4
+        # Clean white/light base
+        light_bg = tuple(min(255, c+80) for c in accent)
+        img = Image.new("RGB", (W, H), light_bg)
+        draw = ImageDraw.Draw(img)
+
+        # Large geometric circle decoration top-right
+        draw.ellipse([W-350, -180, W+180, 380], fill=accent)
+        # Smaller circle bottom-left
+        draw.ellipse([-150, H-350, 250, H+100], fill=tuple(max(0,c-30) for c in accent))
+        # Thin rectangle stripe
+        draw.rectangle([0, H//2-5, W, H//2+5], fill="white")
+
+        # Brand top-left
+        f_brand = tf(36)
+        draw.text((50, 50), brand, font=f_brand, fill="white")
+
+        # Huge "5 TIPS" callout
+        f_huge = tf(130)
+        callout = "5 TIPS"
+        bb = draw.textbbox((0,0), callout, font=f_huge)
+        draw.text(((W-(bb[2]-bb[0]))//2, 220), callout, font=f_huge, fill="white")
+
+        # Thin separator
+        draw.rectangle([100, 390, W-100, 396], fill="white")
+
+        # Title — dark text on light background in bottom half
+        f_title = tf(64)
+        lines = wrap_text(pin_title_text, W-100, f_title, draw)
+        lh = 84
+        ty = 440
+        for ln in lines:
+            bb = draw.textbbox((0,0), ln, font=f_title)
+            x = (W-(bb[2]-bb[0]))//2
+            draw.text((x, ty), ln, font=f_title, fill=text_color)
+            ty += lh
+
+        # Arrow CTA
+        f_cta = tf(38)
+        cta = "▶  Read on the blog"
+        bb = draw.textbbox((0,0), cta, font=f_cta)
+        draw.text(((W-(bb[2]-bb[0]))//2, ty+30), cta, font=f_cta, fill=text_color)
+
+        # Domain bottom
+        f_dom = tr(30)
+        bb = draw.textbbox((0,0), domain, font=f_dom)
+        draw.rectangle([0, H-70, W, H], fill=accent)
+        draw.text(((W-(bb[2]-bb[0]))//2, H-52), domain, font=f_dom, fill="white")
 
     save_path = save_dir / f"pin{pin_num}.jpg"
     img.save(str(save_path), "JPEG", quality=92)
-    print(f"[Step 4] Saved {save_path}")
+    print(f"[Step 4] Saved {save_path} (style {style})")
     return save_path
 
 
